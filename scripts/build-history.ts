@@ -2,7 +2,9 @@
 // version per useful lesson (in seed order), with one planted harmful lesson inserted after the
 // k-th useful lesson. The planted lesson, its version and its failing task are recorded on the
 // history as ground truth, so every investigation on it can be scored against the right answer.
-// Usage: npm run build-history -- H1@3 [--task refund_timeout_07]
+// Usage: npm run build-history -- H1@3 [--task refund_timeout_07] [--good-after U5]
+// --good-after declares the version that added that useful lesson as the known-good endpoint (for
+// tasks the no-lesson agent already fails); every investigation re-confirms it with fresh runs.
 import { yamlLessonSeed } from "@/lib/data/yaml";
 import { getClient } from "@/lib/memory/db";
 import { appendVersion, createHistory, setGroundTruth } from "@/lib/memory/histories";
@@ -18,6 +20,10 @@ async function main() {
   if (at < 0 || at > seed.useful.length) throw new Error(`position must be 0..${seed.useful.length}`);
   const ti = process.argv.indexOf("--task");
   const failingTaskId = ti > -1 ? process.argv[ti + 1] : planted.triggerTasks[0];
+  const gi = process.argv.indexOf("--good-after");
+  const goodAfter = gi > -1 ? process.argv[gi + 1] : null;
+  if (goodAfter && seed.useful.findIndex((u) => u.id === goodAfter) >= at) throw new Error(`${goodAfter} must come before the planted lesson`);
+  let goodVersionId: string | null = null;
 
   const history = await createHistory({ note: `${seed.useful.length} useful lessons, ${seedId} planted after #${at}` });
   let versionId = history.versionIds[0];
@@ -41,7 +47,15 @@ async function main() {
 
   for (let k = 0; k <= seed.useful.length; k++) {
     if (k === at) gt = await add(planted.text, "planted", seedId);
-    if (k < seed.useful.length) await add(seed.useful[k].text, "seeded", seed.useful[k].id);
+    if (k < seed.useful.length) {
+      const added = await add(seed.useful[k].text, "seeded", seed.useful[k].id);
+      if (seed.useful[k].id === goodAfter) goodVersionId = added.versionId;
+    }
+  }
+  if (goodVersionId) {
+    const { col } = await import("@/lib/memory/collections");
+    await (await col()).histories.updateOne({ historyId: history.historyId }, { $set: { goodVersionId } });
+    console.log(`known-good endpoint: ${goodVersionId} (after ${goodAfter}); investigations re-confirm it`);
   }
   await setGroundTruth(history.historyId, {
     seedId,
