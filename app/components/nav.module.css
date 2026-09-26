@@ -1,0 +1,25 @@
+.nav {
+  display: flex;
+  align-items: center;
+  gap: 24px;
+  max-width: 880px;
+  margin: 0 auto;
+  padding: 14px 16px 0;
+  font-size: 16px;
+}
+
+.nav a {
+  color: var(--muted);
+  text-decoration: none;
+}
+
+.nav a:hover {
+  color: var(--fg);
+  text-decoration: underline;
+}
+
+.nav .brand {
+  color: var(--fg);
+  font-weight: 700;
+  margin-right: auto;
+}

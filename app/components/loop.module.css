@@ -1,0 +1,25 @@
+.loop {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 0;
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  font-size: 18px;
+  color: var(--muted);
+}
+
+.loop li {
+  display: inline-flex;
+  align-items: center;
+}
+
+.arrow {
+  margin: 0 10px;
+  color: var(--border-strong);
+}
+
+.on {
+  color: var(--fg);
+  font-weight: 700;
+}

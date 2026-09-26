@@ -2,8 +2,10 @@
 import { getSession } from "@/lib/autopilot/steps";
 import { costOf } from "@/lib/bisect/trials";
 import { col } from "@/lib/memory/collections";
-import { getVersion } from "@/lib/memory/lessons";
-import type { AutopilotView, Cost } from "@/lib/types";
+import { investigationView } from "@/lib/bisect/investigation";
+import { getAgentConfig } from "@/lib/data";
+import { getLessons, getVersion } from "@/lib/memory/lessons";
+import type { AutopilotView, Cost, InvestigationView, Recognition } from "@/lib/types";
 
 export async function autopilotView(sessionId: string): Promise<AutopilotView> {
   const session = await getSession(sessionId);
@@ -20,6 +22,16 @@ export async function autopilotView(sessionId: string): Promise<AutopilotView> {
   const docs = await lessons.find({ lessonId: { $in: lessonIds } }, { projection: { _id: 0, lessonId: 1, text: 1, origin: 1 } }).toArray();
   const active = await getVersion(session.activeVersionId);
   const end = session.finishedAt ? new Date(session.finishedAt).getTime() : Date.now();
+
+  // Read-only extras for the story page.
+  const start = await getVersion(session.startVersionId);
+  const startDocs = await getLessons(start.activeLessonIds);
+  const invIds = [...new Set(session.events.map((e) => e.investigationId).filter((x): x is string => !!x))];
+  const [cfg, recs, invs] = await Promise.all([
+    getAgentConfig(),
+    recognitions.find({ sessionId }, { projection: { _id: 0 } }).sort({ createdAt: 1 }).toArray(),
+    Promise.all(invIds.map((id) => investigationView(id).catch(() => null))),
+  ]);
   return {
     session,
     cost: await costOf(sessionId),
@@ -27,5 +39,9 @@ export async function autopilotView(sessionId: string): Promise<AutopilotView> {
     lessons: Object.fromEntries(docs.map((l) => [l.lessonId, { text: l.text, origin: l.origin }])),
     activeLessonIds: active.activeLessonIds,
     elapsedMs: end - new Date(session.createdAt).getTime(),
+    startLessons: startDocs.map((l) => ({ text: l.text, origin: l.origin, ...(l.seedId ? { seedId: l.seedId } : {}) })),
+    houseRules: cfg.houseRules,
+    recognitions: recs as Recognition[],
+    investigations: invs.filter((x): x is InvestigationView => x !== null),
   };
 }

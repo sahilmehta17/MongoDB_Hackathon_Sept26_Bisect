@@ -451,6 +451,11 @@ export interface AutopilotView {
   lessons: Record<string, { text: string; origin: Origin }>; // lessons on the session's versions
   activeLessonIds: string[];
   elapsedMs: number;
+  // Read-only extras for the story page (display only):
+  startLessons?: { text: string; origin: Origin; seedId?: string }[]; // what the agent started with
+  houseRules?: AgentConfig["houseRules"];
+  recognitions?: Recognition[]; // this session's immune checks
+  investigations?: InvestigationView[]; // investigations this session started
 }
 
 // ---------- measurements (spec section 9; written by scripts/measure-all.ts after the freeze) ----------
