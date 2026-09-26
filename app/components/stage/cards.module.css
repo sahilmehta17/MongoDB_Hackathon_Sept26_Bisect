@@ -26,10 +26,10 @@
   display: flex;
   flex-wrap: wrap;
   justify-content: center;
-  align-items: flex-start;
-  gap: 30px 14px;
+  align-items: stretch; /* every card in a line is as tall as the tallest one */
+  gap: 64px 14px; /* room for the notes that hang under a card */
   margin: 0;
-  padding: 28px 16px 24px;
+  padding: 28px 16px 64px;
   list-style: none;
   background: var(--surface);
   border: 2px solid transparent;
@@ -56,8 +56,30 @@
   max-width: 200px;
 }
 
+.item {
+  display: flex;
+}
+
 .item > .rc {
   width: 100%;
+}
+
+/* Inside a row the card fills the item's height; its note hangs below without adding to it. */
+.item .frame {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+}
+
+.item .card {
+  flex: 1;
+}
+
+.item .note {
+  position: absolute;
+  top: calc(100% + 10px);
+  left: 0;
+  right: 0;
 }
 
 /* ---------- one card ---------- */
@@ -87,7 +109,7 @@
   display: flex;
   flex-direction: column;
   gap: 8px;
-  min-height: 240px; /* fits the longest rule in full at 1280px, so every card in a row is the same height */
+  min-height: 150px;
   padding: 12px 14px 14px;
   background: var(--bg);
   color: var(--fg);
@@ -415,6 +437,7 @@
     grid-template-columns: repeat(2, minmax(0, 1fr));
     gap: 28px 16px;
     padding: 24px 14px 20px;
+    align-items: start;
   }
 
   .item,
@@ -424,6 +447,11 @@
 
   .card {
     min-height: 0;
+  }
+
+  .item .note {
+    position: static;
+    margin-top: 10px;
   }
 
   .text {

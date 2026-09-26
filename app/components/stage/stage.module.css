@@ -197,6 +197,7 @@
   flex-wrap: wrap;
   align-items: center;
   gap: 18px;
+  padding-bottom: 4px;
 }
 
 .between {
