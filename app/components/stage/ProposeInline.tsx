@@ -127,7 +127,7 @@ export default function ProposeInline({ shield, baseVersionId, tried }: { shield
           <>
             <p className={styles.resultLine}>
               {copy.lead && <strong data-outcome={outcome === "blocked" ? "bad" : "good"}>{copy.lead}</strong>} {copy.text}
-              {outcome !== "blocked" && <span className={styles.mono}> {fmtSeconds(rec.ms)}</span>}
+              {outcome !== "blocked" && <> {fmtSeconds(rec.ms)}.</>}
               {href && (
                 <>
                   {" "}

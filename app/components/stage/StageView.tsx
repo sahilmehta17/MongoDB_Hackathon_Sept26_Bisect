@@ -116,6 +116,19 @@ export default function StageView({ id }: { id: string }) {
     if (total) window.history.replaceState(null, "", `#${k + 1}`);
   }, [k, total]);
 
+  // Following a link to /#5 on this page (no reload) jumps to that step.
+  useEffect(() => {
+    const onHash = () => {
+      const n = Number(window.location.hash.slice(1));
+      if (Number.isInteger(n) && n > 0) {
+        setPlaying(false);
+        setAt(n - 1);
+      }
+    };
+    window.addEventListener("hashchange", onHash);
+    return () => window.removeEventListener("hashchange", onHash);
+  }, []);
+
   if (error) {
     return (
       <main className={styles.stage}>
