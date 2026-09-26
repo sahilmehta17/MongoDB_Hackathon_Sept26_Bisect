@@ -1,10 +1,16 @@
 import type { Metadata } from "next";
 import { MONITOR_EVERY } from "@/lib/autopilot/steps";
 import { AutopilotHome } from "./[id]/AutopilotSessionView";
+import InvestigationsList from "./InvestigationsList";
 
-export const metadata: Metadata = { title: "Autopilot · Bisect" };
+export const metadata: Metadata = { title: "All runs · Bisect" };
 
-// The autopilot sessions, and the button that starts the demo (or opens the one already running).
-export default function AutopilotPage() {
-  return <AutopilotHome monitorEvery={MONITOR_EVERY} />;
+// All runs: the autopilot sessions (with the button that starts the demo) and every investigation.
+export default function AllRunsPage() {
+  return (
+    <>
+      <AutopilotHome monitorEvery={MONITOR_EVERY} />
+      <InvestigationsList />
+    </>
+  );
 }
