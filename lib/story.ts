@@ -379,13 +379,13 @@ function proposalRow(
       ...base,
       kind: "blocked_memory",
       step: "remember",
-      line1: label === "visitor" ? `A visitor tried: ${q(text)}` : `The agent tried again in new words: ${q(text)}`,
+      line1: label === "visitor" ? `A visitor tried: ${q(text, 110)}` : `The agent tried again in new words: ${q(text, 110)}`,
       line2: rep
         ? [`Recognized (${Math.round(rep.score * 100)}% similar) → replayed the old case: ${rep.probe.counts.targetFail} of ${rep.probe.trials} → blocked in ${seconds} s`]
         : [`Blocked in ${seconds} s`],
       expand: [
-        ...(matched ? [`It matched a rule caught earlier: ${q(matched.lessonText, 60)}`] : []),
-        ...(text.length > 90 ? [`Full rule: “${text}”`] : []),
+        ...(matched ? [`It matched a rule caught earlier: ${q(matched.lessonText, 50)}`] : []),
+        ...(text.length > 110 ? [`Full rule: “${text}”`] : []),
       ],
       small: "(5 fresh runs)",
       links: run(rep?.probe.runIds[0]),
@@ -404,7 +404,7 @@ function proposalRow(
       ...base,
       kind: "blocked_tests",
       step: "test",
-      line1: own ? `The agent's own rule: ${q(text)}` : q(text),
+      line1: own ? `The agent's own rule: ${q(text, 58)}` : q(text, 72),
       line2: [
         trigger
           ? `Blocked by tests: it didn't fix the request it was learned from (${n - (d?.counts.pass ?? 0)} of ${n} fresh runs still failed)`
@@ -413,7 +413,7 @@ function proposalRow(
       expand: [
         ...(memoryNote ? [memoryNote] : []),
         ...(d && !trigger ? [`${cap(taskTitle(d.taskId))} passed before this rule; with it, ${x} of ${n} fresh runs failed.`] : []),
-        ...(text.length > 90 ? [`Full rule: “${text}”`] : []),
+        ...(text.length > (own ? 58 : 72) ? [`Full rule: “${text}”`] : []),
       ],
       small: d?.trials === 2 ? "(quick check, 2 runs)" : "(5 fresh runs)",
       links: [...run(d?.runIds[0]), ...(failedRun?.runIds?.[0] ? [{ label: "The request it learned from", href: `/runs/${failedRun.runIds[0]}` }] : [])],
@@ -434,13 +434,13 @@ function proposalRow(
     ...base,
     kind: own ? "accepted" : "live",
     step: "watch",
-    line1: own ? `The agent learned: ${q(text)}` : q(text),
+    line1: own ? `The agent learned: ${q(text, 60)}` : q(text, 72),
     line2: [injected ? "Added directly, skipping the tests" : "Passed the tests and went live"],
     expand: [
       ...(memoryNote ? [memoryNote] : []),
       ...(tested.length ? [`Passed all ${tested.filter((t) => t.kind === "gate").length} test tasks.`] : []),
       ...(!own && coveredTask ? [`Why it got past: the tests don't include ${taskTitle(coveredTask)}.`] : []),
-      ...(text.length > 90 ? [`Full rule: “${text}”`] : []),
+      ...(text.length > (own ? 60 : 72) ? [`Full rule: “${text}”`] : []),
     ],
     small: tested.length ? "(quick check, 2 runs each)" : undefined,
     links: run(tested[0]?.runIds[0]),
@@ -478,12 +478,13 @@ function bisectRow(started: AutopilotEvent, inv: InvestigationView | undefined):
     line1: "Bisect found the rule responsible",
     line2: [
       `With it: ${withIt?.counts.targetFail ?? "?"} of ${withIt?.trials ?? 5} ${harm}. Without it: ${without?.counts.targetFail ?? "?"} of ${without?.trials ?? 5}.`,
-      accepted
-        ? `Removed only that rule. ${stillGood === others.length ? `All ${others.length}` : `${stillGood} of ${others.length}`} other tasks still pass.`
-        : `Removing it needs a person to decide.`,
-      `${shortDuration(seconds)}, ${inv.cost.runs} runs.`,
+      `${
+        accepted
+          ? `Removed only that rule. ${stillGood === others.length ? `All ${others.length}` : `${stillGood} of ${others.length}`} other tasks still pass.`
+          : "Removing it needs a person to decide."
+      } ${shortDuration(seconds)}, ${inv.cost.runs} runs.`,
     ],
-    expand: [`Searched ${i.line.length} version${i.line.length === 1 ? "" : "s"}, tested ${probed}. The rule: ${q(i.suspect.text, 60)}`],
+    expand: [`Searched ${i.line.length} version${i.line.length === 1 ? "" : "s"}, tested ${probed}. The rule: ${q(i.suspect.text, 45)}`],
     small: "(5 fresh runs each)",
     links: link,
     open: true,

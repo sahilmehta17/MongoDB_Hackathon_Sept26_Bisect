@@ -54,8 +54,7 @@ test("the Bisect row's numbers come from the investigation", () => {
   const i = inv.investigation;
   const others = i.recheck.filter((r) => r.taskId !== i.failureTaskId);
   assert.equal(b.line2[0], "With it: 5 of 5 double refunds. Without it: 0 of 5.");
-  assert.equal(b.line2[1], `Removed only that rule. All ${others.length} other tasks still pass.`);
-  assert.equal(b.line2[2], `${Math.round(inv.elapsedMs / 1000)} s, ${inv.cost.runs} runs.`);
+  assert.equal(b.line2[1], `Removed only that rule. All ${others.length} other tasks still pass. ${Math.round(inv.elapsedMs / 1000)} s, ${inv.cost.runs} runs.`);
   assert.ok(b.expand[0].startsWith(`Searched ${i.line.length} versions, tested ${new Set(i.probes.map((p) => p.versionId)).size}.`));
   assert.ok(b.open);
 });

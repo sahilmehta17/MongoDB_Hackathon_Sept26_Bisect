@@ -18,7 +18,7 @@
 
 .header {
   display: grid;
-  gap: 14px;
+  gap: 12px;
 }
 
 .titleRow {
@@ -101,7 +101,7 @@ a.number:hover .numberValue {
 .divider {
   border: none;
   border-top: 1px solid var(--border);
-  margin: 20px 0;
+  margin: 16px 0;
 }
 
 .start {
