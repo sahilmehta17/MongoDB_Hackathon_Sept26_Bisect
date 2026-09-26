@@ -92,6 +92,7 @@ export interface TrialOpts {
   contextMode?: ContextMode;
   frozenLessonIds?: string[];
   runTask?: RunTaskFn; // injectable for tests
+  retryDelaysMs?: number[]; // tests use [0, 0]
 }
 
 export async function runTrials(taskId: string, versionId: string, n: number, opts: TrialOpts): Promise<RunRecord[]> {
@@ -106,7 +107,7 @@ export async function runTrials(taskId: string, versionId: string, n: number, op
   const worker = async () => {
     while (next < todo.length) {
       const { runId, trial } = todo[next++];
-      const run = await runWithRetries(runTask, { taskId, versionId, trial, runId, ...pick(opts) });
+      const run = await runWithRetries(runTask, { taskId, versionId, trial, runId, ...pick(opts) }, opts.retryDelaysMs);
       await recordUse(opts.budgetId, run);
       saved.set(runId, run);
     }
@@ -121,9 +122,13 @@ const pick = (o: TrialOpts) => ({
   targetAssertion: o.targetAssertion,
 });
 
-async function runWithRetries(runTask: RunTaskFn, opts: RunTaskOpts): Promise<RunRecord> {
+// Wait before an infra retry, so a rate limit or a burst of in-flight requests can settle.
+export const RETRY_DELAYS_MS = [3_000, 8_000];
+
+async function runWithRetries(runTask: RunTaskFn, opts: RunTaskOpts, delays = RETRY_DELAYS_MS): Promise<RunRecord> {
   let last: unknown;
   for (let attempt = 0; attempt <= LIMITS.maxInfraRetries; attempt++) {
+    if (attempt > 0) await new Promise((r) => setTimeout(r, delays[attempt - 1] ?? 0));
     try {
       const run = await runTask(opts);
       if (attempt > 0) {
@@ -183,6 +188,7 @@ export interface ProbeArgs {
   contextMode?: ContextMode;
   frozenLessonIds?: string[];
   runTask?: RunTaskFn;
+  retryDelaysMs?: number[];
 }
 
 async function probeWith(trials: number, a: ProbeArgs): Promise<{ probe: Omit<Probe, "label">; runs: RunRecord[] }> {
@@ -193,6 +199,7 @@ async function probeWith(trials: number, a: ProbeArgs): Promise<{ probe: Omit<Pr
     contextMode: a.contextMode,
     frozenLessonIds: a.frozenLessonIds,
     runTask: a.runTask,
+    retryDelaysMs: a.retryDelaysMs,
   });
   return {
     runs,

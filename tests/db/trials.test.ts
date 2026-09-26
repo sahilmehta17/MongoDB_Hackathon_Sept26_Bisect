@@ -90,7 +90,7 @@ test("an infra error that survives its retries is insufficient_evidence, never a
   };
   const s = await T.screen({
     key: "gate-t1", ownerId: "ap-infra", budgetId: "b-infra", phase: "search", taskId: "task", versionId: "v1",
-    versionIndex: 1, targetAssertion: "target", runTask: broken,
+    versionIndex: 1, targetAssertion: "target", runTask: broken, retryDelaysMs: [0, 0],
   });
   assert.equal(attempts, 2 * 3, "each of 2 trials: 1 try + 2 retries");
   assert.equal(s.status, "insufficient_evidence");
