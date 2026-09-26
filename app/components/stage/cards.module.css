@@ -1,0 +1,466 @@
+/* Rule cards and run dots for the story stage (display only). Colors come only from the tokens in
+   app/globals.css: --info = Bisect's focus and memory, --bad = rejected / blocked / harm, --good = passed.
+   The only literal colors are the rgba shadows. */
+
+/* ---------- the row ---------- */
+
+.cards {
+  min-width: 0;
+}
+
+.caption {
+  margin: 0 0 10px;
+  font-size: 15px;
+  font-weight: 600;
+  line-height: 1.35;
+  color: var(--muted);
+  transition: color 350ms ease-out;
+}
+
+.alarm .caption {
+  color: var(--bad);
+}
+
+/* Padding and border width stay the same in both tones, so switching tone never moves a card. */
+.row {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  align-items: flex-start;
+  gap: 30px 14px;
+  margin: 0;
+  padding: 28px 16px 24px;
+  list-style: none;
+  background: var(--surface);
+  border: 2px solid transparent;
+  border-radius: 18px;
+  transition: background-color 350ms ease-out, border-color 350ms ease-out;
+}
+
+.alarm .row {
+  background: var(--bad-bg);
+  border-color: var(--bad);
+}
+
+/* ~160px per card (~200px for the card in focus). The cards grow up to that from a smaller base,
+   so seven share one line within 1200px (even with two cards in focus) before anything wraps. */
+.item {
+  flex: 1 1 128px;
+  min-width: 0;
+  max-width: 160px;
+  transition: flex-basis 350ms ease-out, max-width 350ms ease-out;
+}
+
+.itemWide {
+  flex-basis: 160px;
+  max-width: 200px;
+}
+
+.item > .rc {
+  width: 100%;
+}
+
+/* ---------- one card ---------- */
+
+.rc {
+  --rc-shadow: 0 1px 2px rgba(17, 20, 24, 0.06), 0 6px 18px rgba(17, 20, 24, 0.08);
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  width: 160px;
+  max-width: 100%;
+  transition: width 350ms ease-out;
+}
+
+.rcWide {
+  width: 200px;
+}
+
+/* Every move (drop, lift, tilt, slide, shake) happens on the frame, so the badge travels with the card. */
+.frame {
+  position: relative;
+  transition: translate 350ms ease-out, rotate 350ms ease-out, scale 350ms ease-out, opacity 350ms ease-out;
+}
+
+.card {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  min-height: 142px;
+  padding: 12px 14px 14px;
+  background: var(--bg);
+  color: var(--fg);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  box-shadow: var(--rc-shadow);
+  transition: opacity 350ms ease-out, box-shadow 350ms ease-out, border-color 350ms ease-out,
+    background-color 350ms ease-out, border-radius 350ms ease-out;
+}
+
+.top {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px 8px;
+  min-height: 20px;
+}
+
+.tag {
+  font-family: var(--mono);
+  font-size: 14px;
+  line-height: 20px;
+  color: var(--muted);
+}
+
+/* Honesty label (planted / injected / visitor), same colors as the autopilot pages. */
+.origin {
+  padding: 0 7px;
+  font-size: 13px;
+  font-weight: 700;
+  line-height: 20px;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  white-space: nowrap;
+  border: 1px solid currentColor;
+  border-radius: 6px;
+}
+
+.planted {
+  color: var(--warn);
+  background: var(--warn-bg);
+}
+
+.injected {
+  color: var(--bad);
+  background: var(--bad-bg);
+}
+
+.visitor {
+  color: var(--info);
+  background: var(--info-bg);
+}
+
+.text {
+  margin: 0;
+  font-size: 16px;
+  line-height: 1.35;
+  overflow-wrap: break-word;
+  text-wrap: pretty;
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 4;
+  line-clamp: 4;
+  overflow: hidden;
+}
+
+.note {
+  margin: 0;
+  padding: 0 4px;
+  font-size: 14px;
+  line-height: 1.35;
+  color: var(--muted);
+  text-align: center;
+  text-wrap: balance;
+  overflow-wrap: break-word;
+  transition: opacity 350ms ease-out, color 350ms ease-out, translate 350ms ease-out;
+}
+
+/* Result badge: a small circle on the card's top-right corner. The --bg halo separates it from the edge. */
+.badge {
+  position: absolute;
+  top: -11px;
+  right: -11px;
+  display: grid;
+  place-items: center;
+  width: 28px;
+  height: 28px;
+  font-size: 15px;
+  color: var(--bg);
+  border: 2px solid var(--bg);
+  border-radius: 50%;
+  box-shadow: 0 2px 6px rgba(17, 20, 24, 0.2);
+  animation: pop 260ms ease-out;
+}
+
+.badgeBad {
+  background: var(--bad);
+}
+
+.badgeGood {
+  background: var(--good);
+}
+
+/* Its own first line, so the shield card reads the same with or without a tag and chip. */
+.remembered {
+  display: flex;
+  flex-basis: 100%;
+  align-items: center;
+  gap: 6px;
+  font-size: 14px;
+  font-weight: 700;
+  line-height: 20px;
+  color: var(--info);
+}
+
+.shieldIcon {
+  flex: none;
+  font-size: 18px;
+}
+
+/* ---------- states (live is the default look above) ---------- */
+
+.dim .frame,
+.dim .note {
+  opacity: 0.45;
+}
+
+.new .frame {
+  animation: slideIn 480ms ease-out both;
+}
+
+.new .card {
+  border-color: var(--info);
+  box-shadow: 0 0 0 3px var(--info-bg), var(--rc-shadow);
+}
+
+.rejected .frame {
+  translate: 0 10px;
+  rotate: 2deg;
+}
+
+.rejected .card {
+  opacity: 0.5;
+  border-color: var(--bad);
+  box-shadow: none;
+}
+
+.rejected .note {
+  translate: 0 10px;
+  color: var(--bad);
+}
+
+.suspect .frame {
+  scale: 1.04;
+}
+
+.suspect .card {
+  border-color: var(--info);
+  box-shadow: 0 0 0 3px var(--info), 0 14px 32px color-mix(in srgb, var(--info) 22%, transparent);
+}
+
+.suspect .note {
+  color: var(--fg);
+  font-weight: 600;
+}
+
+/* Dashed states use a 2px border and 1px less padding, so the text does not shift. */
+.removed .frame {
+  translate: 0 -20px;
+}
+
+.removed .card {
+  opacity: 0.35;
+  padding: 11px 13px 13px;
+  background: transparent;
+  border: 2px dashed var(--border-strong);
+  box-shadow: none;
+}
+
+/* Memory: blue tint and a shield-like curved bottom. */
+.shield .card {
+  padding-bottom: 22px;
+  background: var(--info-bg);
+  border-color: var(--info);
+  border-radius: 14px 14px 50% 50% / 14px 14px 30px 30px;
+  box-shadow: 0 0 0 1px var(--info), var(--rc-shadow);
+}
+
+.shield .note {
+  color: var(--info);
+}
+
+.incoming .frame {
+  rotate: -4deg;
+  animation: slideIn 480ms ease-out both;
+}
+
+.incoming .card {
+  padding: 11px 13px 13px;
+  border: 2px dashed var(--info);
+}
+
+.blocked .frame {
+  animation: shake 420ms ease-in-out;
+}
+
+.blocked .card {
+  background: var(--bad-bg);
+  border-color: var(--bad);
+  box-shadow: 0 0 0 1px var(--bad), var(--rc-shadow);
+}
+
+.blocked .note {
+  color: var(--bad);
+  font-weight: 600;
+}
+
+.passed .card {
+  background: var(--good-bg);
+  border-color: var(--good);
+  box-shadow: 0 0 0 1px var(--good), var(--rc-shadow);
+}
+
+.passed .note {
+  color: var(--good);
+  font-weight: 600;
+}
+
+@keyframes slideIn {
+  from {
+    translate: 24px 0;
+    opacity: 0;
+  }
+  to {
+    translate: 0 0;
+    opacity: 1;
+  }
+}
+
+@keyframes shake {
+  0%,
+  100% {
+    translate: 0 0;
+  }
+  20% {
+    translate: -8px 0;
+  }
+  40% {
+    translate: 7px 0;
+  }
+  60% {
+    translate: -5px 0;
+  }
+  80% {
+    translate: 3px 0;
+  }
+}
+
+@keyframes pop {
+  from {
+    scale: 0.4;
+    opacity: 0;
+  }
+  to {
+    scale: 1;
+    opacity: 1;
+  }
+}
+
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+/* ---------- dots: one line of repeated runs ---------- */
+
+.dots {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px 16px;
+  font-size: 16px;
+  line-height: 1.35;
+}
+
+.dotsLabel {
+  flex: 0 0 150px;
+  min-width: 0;
+  font-weight: 600;
+  color: var(--fg);
+}
+
+.dotRow {
+  display: flex;
+  flex: none;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.dot {
+  flex: none;
+  width: 18px;
+  height: 18px;
+  border: 3px solid var(--good);
+  border-radius: 50%;
+  transition: background-color 300ms ease-out, border-color 300ms ease-out;
+}
+
+.dotFail {
+  background: var(--bad);
+  border-color: var(--bad);
+}
+
+.dotsNote {
+  flex: 1 1 200px;
+  min-width: 0;
+  color: var(--muted);
+}
+
+/* ---------- phones: two columns, 16px gutters ---------- */
+
+@media (max-width: 699px) {
+  .row {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 28px 16px;
+    padding: 24px 14px 20px;
+  }
+
+  .item,
+  .itemWide {
+    max-width: none;
+  }
+
+  .card {
+    min-height: 136px;
+  }
+
+  .text {
+    font-size: 15px;
+  }
+}
+
+/* ---------- reduced motion: no moves at all, only opacity changes ---------- */
+
+@media (prefers-reduced-motion: reduce) {
+  .item,
+  .rc {
+    transition: none;
+  }
+
+  .frame,
+  .note {
+    translate: none !important;
+    rotate: none !important;
+    scale: none !important;
+    transition: opacity 350ms ease-out;
+  }
+
+  .frame {
+    animation: none !important;
+  }
+
+  .new .frame,
+  .incoming .frame {
+    animation: fadeIn 350ms ease-out both !important;
+  }
+
+  .badge {
+    animation: none;
+  }
+}
