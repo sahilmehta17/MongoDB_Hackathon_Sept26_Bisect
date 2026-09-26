@@ -1,0 +1,423 @@
+/* Sneak dialog + Visitor attempts. Colors come only from the tokens in app/globals.css:
+   --bad blocked, --good let through, --muted no match, --info the shield (memory). */
+
+/* ---------- dialog ---------- */
+
+.dialog {
+  width: min(680px, calc(100vw - 32px));
+  max-width: none;
+  max-height: calc(100dvh - 32px);
+  padding: 0;
+  border: 1px solid var(--border);
+  border-radius: calc(var(--radius) + 4px);
+  background: var(--bg);
+  color: var(--fg);
+  overflow: hidden;
+  overscroll-behavior: contain;
+  box-shadow: 0 24px 60px color-mix(in srgb, var(--fg, #111418) 22%, transparent);
+}
+
+/* ::backdrop may not inherit custom properties in older browsers, hence the var() fallback. */
+.dialog::backdrop {
+  background: color-mix(in srgb, var(--fg, #111418) 45%, transparent);
+}
+
+:global(html):has(.dialog[open]) {
+  overflow: hidden;
+}
+
+.inner {
+  max-height: calc(100dvh - 34px);
+  overflow-y: auto;
+  padding: 24px;
+  display: grid;
+  gap: 14px;
+  font-size: 1rem;
+  line-height: 1.45;
+}
+
+.head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.title {
+  margin: 0;
+  font-size: 1.5rem;
+  line-height: 1.2;
+  letter-spacing: -0.01em;
+  text-wrap: balance;
+}
+
+.title:focus {
+  outline: none;
+}
+
+.close {
+  flex: none;
+  display: grid;
+  place-items: center;
+  width: 40px;
+  height: 40px;
+  margin: -6px -8px 0 0;
+  border: 0;
+  border-radius: 8px;
+  background: transparent;
+  color: var(--muted);
+  cursor: pointer;
+}
+
+.close:hover {
+  background: var(--surface);
+  color: var(--fg);
+}
+
+.lede {
+  margin: 0;
+  color: var(--muted);
+}
+
+.form {
+  margin: 0;
+}
+
+.fieldset {
+  display: grid;
+  gap: 16px;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  min-width: 0;
+}
+
+.pick,
+.write {
+  display: grid;
+  gap: 12px;
+  align-content: start;
+  min-width: 0;
+}
+
+.label {
+  display: block;
+  margin: 0 0 6px;
+  font-weight: 600;
+}
+
+.menu {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 6px;
+}
+
+.menuItem {
+  display: block;
+  width: 100%;
+  padding: 7px 12px;
+  font: inherit;
+  line-height: 1.35;
+  text-align: left;
+  color: var(--fg);
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  cursor: pointer;
+}
+
+.menuItem:hover {
+  border-color: var(--border-strong);
+}
+
+.menuItem[aria-pressed="true"] {
+  border-color: var(--info);
+  background: var(--info-bg);
+}
+
+.tag {
+  display: inline-block;
+  margin-right: 4px;
+  padding: 0 8px;
+  border-radius: 999px;
+  font-size: 0.875rem;
+  font-weight: 600;
+  text-align: center;
+  white-space: nowrap;
+}
+
+.tagBad {
+  color: var(--bad);
+  background: var(--bad-bg);
+}
+
+.tagGood {
+  color: var(--good);
+  background: var(--good-bg);
+}
+
+.textarea {
+  display: block;
+  width: 100%;
+  min-height: 4.6em;
+  padding: 10px 12px;
+  font: inherit;
+  line-height: 1.4;
+  color: var(--fg);
+  background: var(--bg);
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius);
+  resize: vertical;
+}
+
+.hint {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  margin: 6px 0 0;
+  font-size: 0.875rem;
+  color: var(--muted);
+}
+
+.counter {
+  font-variant-numeric: tabular-nums;
+}
+
+.note {
+  margin: 0;
+  color: var(--muted);
+}
+
+.button {
+  font: inherit;
+  font-weight: 700;
+  color: var(--bg);
+  background: var(--info);
+  border: 0;
+  border-radius: var(--radius);
+  padding: 11px 26px;
+  cursor: pointer;
+}
+
+.button:disabled {
+  cursor: not-allowed;
+  opacity: 0.5;
+}
+
+.close:focus-visible,
+.menuItem:focus-visible,
+.button:focus-visible,
+.textarea:focus-visible,
+.trace:focus-visible {
+  outline: 3px solid color-mix(in srgb, var(--info) 45%, transparent);
+  outline-offset: 2px;
+}
+
+/* ---------- running and result ---------- */
+
+.running {
+  margin: 0;
+  font-weight: 600;
+}
+
+.progressRow {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-top: 8px;
+}
+
+.bar {
+  position: relative;
+  flex: 1;
+  height: 6px;
+  border-radius: 999px;
+  background: var(--info-bg);
+  overflow: hidden;
+}
+
+.bar::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  width: 35%;
+  border-radius: inherit;
+  background: var(--info);
+  animation: sneak-slide 1.4s ease-in-out infinite;
+}
+
+@keyframes sneak-slide {
+  from {
+    transform: translateX(-100%);
+  }
+  to {
+    transform: translateX(290%);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .bar::after {
+    animation: none;
+    width: 100%;
+    opacity: 0.4;
+  }
+}
+
+.timer {
+  min-width: 4.5ch;
+  text-align: right;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  color: var(--muted);
+}
+
+.result {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  padding: 12px 14px;
+  border-radius: var(--radius);
+  background: var(--surface);
+}
+
+.resultIcon {
+  flex: none;
+  margin-top: 0.15em;
+  font-size: 1.5rem;
+  color: var(--info);
+}
+
+.resultText {
+  margin: 0;
+  font-size: 1.125rem;
+  line-height: 1.4;
+}
+
+.trace {
+  display: inline-block;
+  margin-top: 4px;
+  font-size: 0.9375rem;
+  color: var(--info);
+}
+
+.error {
+  margin: 0;
+  padding: 12px 14px;
+  border-radius: var(--radius);
+  color: var(--bad);
+  background: var(--bad-bg);
+}
+
+/* outcome colors, shared by the dialog and the list */
+.blocked {
+  color: var(--bad);
+}
+
+.passed {
+  color: var(--good);
+}
+
+.noMatch {
+  color: var(--muted);
+}
+
+/* ---------- visitor attempts ---------- */
+
+.attempts {
+  margin: 0;
+}
+
+.attemptsTitle {
+  margin: 0 0 10px;
+  font-size: 1.125rem;
+  font-weight: 700;
+}
+
+.attemptList {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 10px;
+}
+
+.attempt {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  column-gap: 12px;
+  row-gap: 2px;
+  font-size: 1.125rem;
+  line-height: 1.4;
+}
+
+.attemptIcon {
+  flex: none;
+  align-self: flex-start;
+  margin-top: 0.22em;
+  color: var(--info);
+}
+
+.attemptText {
+  flex: 1 1 18rem;
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.attemptMeta {
+  display: inline-flex;
+  gap: 10px;
+  margin-left: auto;
+  white-space: nowrap;
+}
+
+.word {
+  font-weight: 700;
+}
+
+.secs {
+  color: var(--muted);
+  font-size: 1rem;
+  font-variant-numeric: tabular-nums;
+}
+
+.empty {
+  margin: 0;
+  color: var(--muted);
+}
+
+/* ---------- wide screens: rules on the left, your rule and the result on the right ---------- */
+
+@media (min-width: 900px) {
+  .dialog {
+    width: min(980px, calc(100vw - 32px));
+  }
+
+  .fieldset {
+    grid-template-columns: minmax(0, 1.4fr) minmax(0, 1fr);
+    column-gap: 28px;
+    align-items: start;
+  }
+
+  .textarea {
+    min-height: 6.4em;
+  }
+}
+
+/* ---------- phone width ---------- */
+
+@media (max-width: 560px) {
+  .inner {
+    padding: 18px 16px;
+  }
+
+  .title {
+    font-size: 1.3rem;
+  }
+
+  .attemptMeta {
+    margin-left: 30px;
+  }
+}
