@@ -15,7 +15,7 @@ export async function GET() {
     if (seen.has(gt.seedId)) continue; // newest history per planted lesson
     seen.add(gt.seedId);
     const latest = await investigations.findOne(
-      { historyId: h.historyId, failureTaskId: gt.failingTaskId },
+      { historyId: h.historyId, failureTaskId: gt.failingTaskId, hidden: { $exists: false } },
       { sort: { startedAt: -1 }, projection: { _id: 0, investigationId: 1, verdict: 1, acceptance: 1, suspect: 1 } },
     );
     cases.push({

@@ -51,12 +51,19 @@ export default function Home() {
   const router = useRouter();
   const [cases, setCases] = useState<DemoCase[]>([]);
   const [rows, setRows] = useState<Row[]>([]);
+  const [hidden, setHidden] = useState<{ investigationId: string; reason: string }[]>([]);
   const [busy, setBusy] = useState<string | null>(null);
   const [err, setErr] = useState<string | null>(null);
 
   useEffect(() => {
     fetch("/api/demo", { cache: "no-store" }).then((r) => r.json()).then(setCases).catch(() => setCases([]));
-    fetch("/api/investigations", { cache: "no-store" }).then((r) => r.json()).then(setRows).catch(() => setRows([]));
+    fetch("/api/investigations", { cache: "no-store" })
+      .then((r) => r.json())
+      .then((d: { list: Row[]; hidden: { investigationId: string; reason: string }[] }) => {
+        setRows(d.list);
+        setHidden(d.hidden);
+      })
+      .catch(() => setRows([]));
   }, []);
 
   async function runLive(c: DemoCase) {
@@ -175,6 +182,17 @@ export default function Home() {
               ))}
             </tbody>
           </table>
+        )}
+        {hidden.length > 0 && (
+          <p className="muted">
+            Not listed:{" "}
+            {Object.entries(
+              hidden.reduce<Record<string, string[]>>((a, h) => ((a[h.reason] = [...(a[h.reason] ?? []), h.investigationId]), a), {}),
+            )
+              .map(([reason, ids]) => `${ids.join(", ")} (${reason})`)
+              .join("; ")}
+            . Still in the database and viewable by link.
+          </p>
         )}
       </section>
 

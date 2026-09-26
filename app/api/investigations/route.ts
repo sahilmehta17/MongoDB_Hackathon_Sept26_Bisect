@@ -33,12 +33,15 @@ export async function POST(req: Request) {
   return NextResponse.json({ investigationId, workflowRunId: run.runId });
 }
 
-// Newest first, for the home page.
+// Newest first, for the home page. Hidden ones are counted, with their reasons, but not listed.
 export async function GET() {
   const { investigations } = await col();
+  const hidden = await investigations
+    .find({ hidden: { $exists: true } }, { projection: { _id: 0, investigationId: 1, hidden: 1 } })
+    .toArray();
   const list = await investigations
     .find(
-      {},
+      { hidden: { $exists: false } },
       {
         projection: {
           _id: 0, investigationId: 1, historyId: 1, trigger: 1, failureTaskId: 1, targetAssertion: 1,
@@ -49,5 +52,5 @@ export async function GET() {
     .sort({ startedAt: -1 })
     .limit(50)
     .toArray();
-  return NextResponse.json(list);
+  return NextResponse.json({ list, hidden: hidden.map((h) => ({ investigationId: h.investigationId, reason: h.hidden!.reason })) });
 }

@@ -290,6 +290,7 @@ export interface Investigation {
   verdict: Verdict;
   summary?: string;
   workflowRunId?: string;
+  hidden?: { reason: string }; // kept in the database, left off the home list (e.g. stopped by an API credit error)
   startedAt: Date;
   finishedAt?: Date;
   log: { at: Date; msg: string }[];

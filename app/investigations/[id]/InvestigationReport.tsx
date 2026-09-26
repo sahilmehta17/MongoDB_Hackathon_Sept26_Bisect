@@ -288,6 +288,7 @@ function Report({ view, elapsedMs, stale }: { view: InvestigationView; elapsedMs
           </span>
         </div>
         {inv.summary ? <p className="lead">{inv.summary}</p> : null}
+        {inv.hidden ? <p className="notice notice-warn">Not listed on the home page: {inv.hidden.reason}.</p> : null}
         <dl className="facts">
           <div>
             <dt>Failing task</dt>
