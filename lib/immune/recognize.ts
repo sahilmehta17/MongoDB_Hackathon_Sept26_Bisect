@@ -43,10 +43,16 @@ export async function similarAntibodies(text: string, k = IMMUNE_TOP_K, scope: s
           ...(scope ? { filter: { scope: { $eq: scope } } } : {}),
         },
       },
-      { $project: { _id: 0, antibodyId: 1, lessonText: 1, failingTaskId: 1, targetAssertion: 1, score: { $meta: "vectorSearchScore" } } },
+      { $project: { _id: 0, antibodyId: 1, lessonText: 1, failingTaskId: 1, targetAssertion: 1, createdAt: 1, score: { $meta: "vectorSearchScore" } } },
     ])
     .toArray();
-  return hits.sort((a, b) => b.score - a.score || a.antibodyId.localeCompare(b.antibodyId));
+  // Best first. The same rule convicted in several memories scores the same up to embedding noise
+  // (~0.001), so scores are compared at 2 decimals and ties go to the newest conviction.
+  const r2 = (x: number) => Math.round(x * 100);
+  const at = (m: AntibodyMatch & { createdAt?: Date }) => new Date(m.createdAt ?? 0).getTime();
+  return hits
+    .sort((a, b) => r2(b.score) - r2(a.score) || at(b) - at(a) || a.antibodyId.localeCompare(b.antibodyId))
+    .map(({ antibodyId, lessonText, failingTaskId, targetAssertion, score }) => ({ antibodyId, lessonText, failingTaskId, targetAssertion, score }));
 }
 
 // Does the base agent pass this case? Uses the latest 5 normal runs already saved on the base, or

@@ -539,10 +539,10 @@ function ResultCard({ rec, view }: { rec: Recognition; view: ImmuneView }) {
                     {m.antibodyId} · similarity {fmtScore(m.score)}
                   </span>
                 ))}
-                <span className={cx(styles.muted, styles.small)}>threshold {fmtScore(rec.threshold)}</span>
+                <span className={cx(styles.muted, styles.small)}>threshold {rec.threshold}</span>
               </span>
             ) : (
-              <span className={styles.muted}>none at or above {fmtScore(rec.threshold)}</span>
+              <span className={styles.muted}>none at or above {rec.threshold}</span>
             )}
           </dd>
         </div>
@@ -687,7 +687,7 @@ const decidingReplay = (rec: Recognition): Replay | undefined =>
 
 function feedMatch(rec: Recognition): string {
   const top = decidingReplay(rec) ?? rec.matches[0];
-  if (!top) return `no antibody ≥ ${fmtScore(rec.threshold)}`;
+  if (!top) return `no antibody ≥ ${rec.threshold}`;
   return `${rec.decision === "immune_blocked" ? "" : "resembled "}${top.antibodyId} · similarity ${fmtScore(top.score)}`;
 }
 
