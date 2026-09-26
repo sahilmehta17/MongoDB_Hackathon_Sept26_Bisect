@@ -451,3 +451,53 @@ export interface AutopilotView {
   activeLessonIds: string[];
   elapsedMs: number;
 }
+
+// ---------- measurements (spec section 9; written by scripts/measure-all.ts after the freeze) ----------
+
+export interface Rate {
+  pass: number;
+  total: number;
+  trials: number; // per task
+}
+
+export interface Measurements {
+  measuredAt: Date;
+  commit: string;
+  viability: {
+    zeroLesson: Rate & { versionId: string };
+    usefulLessons: Rate & { versionId: string };
+    harmfulBite: { seedId: string; taskId: string; versionId: string; targetFail: number; trials: number }[];
+    afterUndo: (Rate & { versionId: string; investigationId: string })[];
+  };
+  investigations: {
+    investigationId: string;
+    seedId: string | null;
+    correct: boolean | null; // named the planted lesson (null when there's no planted answer)
+    verdict: Verdict;
+    acceptance: Investigation["acceptance"];
+    probes: number;
+    runs: number;
+    modelCalls: number;
+    tokens: number;
+    seconds: number;
+  }[];
+  immune: {
+    threshold: number | null;
+    calibration: { rewordings: number; useful: number; lowestRewording: number; highestUseful: number };
+    firstCatch: { investigationId: string; seconds: number; runs: number } | null;
+    repeatCatch: { recognitionId: string; seconds: number; runs: number } | null;
+    holdout: { total: number; recognized: number; blocked: number } | null;
+    usefulLookalikes: { matched: number; passed: number } | null;
+  };
+  autopilot: {
+    sessionId: string;
+    proposals: number;
+    immuneBlocks: number;
+    gateRejections: number;
+    activations: number;
+    regressionsCaught: number;
+    repairs: number;
+    detectionToRepairSeconds: number | null;
+  } | null;
+  cost: { runs: number; tokens: number };
+}

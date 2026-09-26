@@ -16,7 +16,8 @@
     "build-history": "tsx --env-file=.env.local scripts/build-history.ts",
     "test:db": "node --env-file=.env.local --import tsx --test tests/db/*.test.ts",
     "calibrate-immune": "tsx --env-file=.env.local scripts/calibrate-immune.ts",
-    "holdout-immune": "tsx --env-file=.env.local scripts/holdout-immune.ts"
+    "holdout-immune": "tsx --env-file=.env.local scripts/holdout-immune.ts",
+    "measure-all": "tsx --env-file=.env.local scripts/measure-all.ts"
   },
   "dependencies": {
     "mongodb": "^7.6.0",

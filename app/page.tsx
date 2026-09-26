@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
+import Results from "./Results";
 import styles from "./home.module.css";
 
 type DemoCase = {
@@ -100,6 +101,8 @@ export default function Home() {
           </div>
         ))}
       </section>
+
+      <Results />
 
       <section className="section">
         <h2>Planted test cases</h2>

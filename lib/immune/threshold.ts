@@ -8,3 +8,5 @@
 // tested against this value only.
 export const IMMUNE_THRESHOLD: number | null = 0.786;
 export const IMMUNE_TOP_K = 3;
+// What the calibration printout showed when the threshold was fixed.
+export const CALIBRATION = { rewordings: 9, useful: 10, lowestRewording: 0.787, highestUseful: 0.862 };

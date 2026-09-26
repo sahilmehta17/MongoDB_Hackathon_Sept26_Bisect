@@ -75,3 +75,10 @@
   color: var(--muted);
   font-size: 0.9rem;
 }
+
+.results {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 12px;
+  margin-bottom: 16px;
+}
