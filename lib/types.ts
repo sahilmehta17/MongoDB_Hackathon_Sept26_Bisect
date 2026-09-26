@@ -126,6 +126,7 @@ export interface History {
     failingTaskId: string;
     targetAssertion: string;
   };
+  goodVersionId?: string; // a measured known-good version for its failing task, when the root isn't GOOD
   note?: string;
   createdAt: Date;
 }

@@ -1,0 +1,77 @@
+.hero {
+  padding: 24px 0 8px;
+}
+
+.title {
+  font-size: clamp(2.4rem, 6vw, 3.6rem);
+  margin: 4px 0 12px;
+  letter-spacing: -0.02em;
+}
+
+.lead {
+  font-size: 1.2rem;
+  max-width: 44em;
+  margin: 0 0 20px;
+}
+
+.actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  align-items: center;
+}
+
+.secondary {
+  display: inline-block;
+  padding: 10px 16px;
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius);
+  color: var(--fg);
+  text-decoration: none;
+  font-weight: 600;
+}
+
+.pillars {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 12px;
+  margin: 28px 0;
+}
+
+.pillar {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 14px 16px;
+}
+
+.pillar h3 {
+  margin: 0 0 6px;
+  font-size: 1rem;
+}
+
+.pillar p {
+  margin: 0;
+  color: var(--muted);
+}
+
+.cases {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+  gap: 12px;
+}
+
+.caseActions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  align-items: center;
+}
+
+.footer {
+  margin: 40px 0 8px;
+  padding-top: 16px;
+  border-top: 1px solid var(--border);
+  color: var(--muted);
+  font-size: 0.9rem;
+}
