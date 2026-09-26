@@ -1,6 +1,6 @@
 // Every Atlas collection Bisect uses, the atomic id counter, and the indexes (btree + Vector Search).
-import { MongoServerError, type Collection, type Document } from "mongodb";
-import type { AgentConfig, Antibody, Budget, History, Lesson, RunRecord, Snapshot, Task, Version } from "@/lib/types";
+import { MongoServerError, type Collection } from "mongodb";
+import type { AgentConfig, Antibody, Budget, History, Investigation, Lesson, RunRecord, Snapshot, Task, Version } from "@/lib/types";
 import { getDb } from "./db";
 import { EMBED_DIMS } from "./embed";
 
@@ -23,7 +23,7 @@ export async function col() {
     versions: db.collection<Version>("versions"),
     histories: db.collection<History>("histories"),
     runs: db.collection<RunRecord>("runs"),
-    investigations: db.collection<Document>("investigations"), // no shared type yet
+    investigations: db.collection<Investigation>("investigations"),
     budgets: db.collection<Budget>("budgets"),
     antibodies: db.collection<Antibody>("antibodies"),
     counters: db.collection<Counter>("counters"),
