@@ -5,6 +5,7 @@
 import { mongoHosts } from "@/lib/env";
 import { dataVersion, yamlAgentConfig, yamlLessonSeed, yamlOptional, yamlSnapshots, yamlTasks } from "@/lib/data/yaml";
 import { col, ensureIndexes, sleep, TASK_INDEX, type TaskDoc } from "@/lib/memory/collections";
+import { parseCalibration } from "@/lib/data/stored";
 import { getClient, getDb } from "@/lib/memory/db";
 import { embed, EMBED_DIMS } from "@/lib/memory/embed";
 
@@ -71,6 +72,16 @@ async function main() {
     }
     await extras.replaceOne({ _id: id }, { data: raw, updatedAt: new Date() }, { upsert: true });
     optional.push(`${file}: loaded`);
+  }
+  // The "Propose a rule" menu on /immune: calibration rewordings and useful lessons (never the holdout).
+  const cal = parseCalibration(yamlOptional("immune_calibration.yaml"));
+  if (cal) {
+    const items = [
+      ...Object.values(cal.rewordings).flat().map((text) => ({ text, kind: "reworded bad rule" as const })),
+      ...cal.useful.map((text) => ({ text, kind: "useful rule" as const })),
+    ];
+    await (await getDb()).collection<{ _id: string; items: unknown; updatedAt: Date }>("config").replaceOne({ _id: "immune_menu" }, { items, updatedAt: new Date() }, { upsert: true });
+    optional.push(`immune menu: ${items.length} rules`);
   }
 
   // Wait until Vector Search sees every task (the index catches up asynchronously).

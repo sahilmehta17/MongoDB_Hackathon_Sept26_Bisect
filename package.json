@@ -14,7 +14,8 @@
     "run-task": "tsx --env-file=.env.local scripts/run-task.ts",
     "eval": "tsx --env-file=.env.local scripts/eval.ts",
     "build-history": "tsx --env-file=.env.local scripts/build-history.ts",
-    "test:db": "node --env-file=.env.local --import tsx --test tests/db/*.test.ts"
+    "test:db": "node --env-file=.env.local --import tsx --test tests/db/*.test.ts",
+    "calibrate-immune": "tsx --env-file=.env.local scripts/calibrate-immune.ts"
   },
   "dependencies": {
     "mongodb": "^7.6.0",

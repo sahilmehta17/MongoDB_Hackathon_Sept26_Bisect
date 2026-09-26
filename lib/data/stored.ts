@@ -18,7 +18,11 @@ export async function getLessonSeed(): Promise<{ useful: SeedLesson[]; harmful: 
 // data/autopilot_sets.yaml: a gate set and a monitoring set of eval task ids. Entries may be plain
 // ids or objects with a task id and a reason.
 export async function getAutopilotSets(): Promise<{ gate: string[]; monitoring: string[] } | null> {
-  const d = toCamel(await stored("autopilot_sets")) as Record<string, unknown> | null;
+  return parseSets(await stored("autopilot_sets"));
+}
+
+export function parseSets(raw: unknown): { gate: string[]; monitoring: string[] } | null {
+  const d = toCamel(raw) as Record<string, unknown> | null;
   if (!d) return null;
   const ids = (v: unknown): string[] =>
     (Array.isArray(v) ? v : []).map((x) => (typeof x === "string" ? x : String((x as Record<string, unknown>).taskId ?? (x as Record<string, unknown>).id ?? ""))).filter(Boolean);
@@ -34,7 +38,11 @@ export interface Calibration {
 
 // data/immune_calibration.yaml: rewordings per convicted rule plus useful lessons. Read tolerantly.
 export async function getCalibration(): Promise<Calibration | null> {
-  const d = toCamel(await stored("immune_calibration")) as Record<string, unknown> | null;
+  return parseCalibration(await stored("immune_calibration"));
+}
+
+export function parseCalibration(raw: unknown): Calibration | null {
+  const d = toCamel(raw) as Record<string, unknown> | null;
   if (!d) return null;
   const rewordings: Record<string, string[]> = {};
   const list = (d.convicted ?? d.rewordings ?? d.harmful ?? d.rules) as unknown;
