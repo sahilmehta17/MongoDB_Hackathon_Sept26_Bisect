@@ -617,11 +617,15 @@ function Evidence({ view }: { view: InvestigationView }) {
     );
   }
 
+  // Infra errors aren't evidence either way: say so instead of letting "0/5" read as "harmless".
+  const errs = (p: Probe) => (p.counts.error ? ` (${p.counts.error} of ${p.trials} runs hit infrastructure errors)` : "");
   const lead =
     cur && minus ? (
       <strong className="headline">
-        With the lesson: {cur.counts.targetFail}/{cur.trials} runs broke the rule. Without it: {minus.counts.targetFail}/
-        {minus.trials}.
+        {cur.counts.error || minus.counts.error ? "Not enough evidence. " : ""}
+        With the lesson: {cur.counts.targetFail}/{cur.trials} runs broke the rule{errs(cur)}. Without it:{" "}
+        {minus.counts.targetFail}/{minus.trials}
+        {errs(minus)}.
       </strong>
     ) : (
       "The suspect is convicted only if all four configurations come out as expected."
