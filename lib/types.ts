@@ -221,7 +221,11 @@ export interface Budget {
 
 export interface Antibody {
   antibodyId: string; // "ab1", ...
-  investigationId: string;
+  // Whose immune memory this is: "lab" (manual investigations) or an autopilot session id. Each
+  // autopilot session's agent starts fresh and is guarded only by its own convictions.
+  scope: string;
+  investigationId: string; // the first conviction
+  convictions: string[]; // every investigation that convicted this rule (one antibody per rule)
   convictedLessonId: string;
   lessonText: string;
   embedding: number[];
@@ -266,6 +270,7 @@ export interface Investigation {
   investigationId: string; // "inv1", ...
   historyId: string;
   trigger: "manual" | "monitor" | "autopilot";
+  sessionId?: string; // the autopilot session that started it
   failureTaskId: string;
   targetAssertion: string;
   goodVersionId: string;
@@ -325,6 +330,9 @@ export interface Recognition {
   threshold: number;
   matches: { antibodyId: string; score: number; lessonText: string }[]; // top 3 at or above the threshold
   replays: { antibodyId: string; score: number; probe: Probe }[];
+  // Matches whose case the base agent already fails: a replay couldn't show this rule caused it.
+  untestable: { antibodyId: string; score: number; baseLabel: Label }[];
+  scope: string | null; // antibodies searched: one autopilot session, or null for all
   decision: "no_match" | "immune_blocked" | "immune_passed";
   blockedBy: string | null;
   ms: number; // proposal to decision
@@ -355,6 +363,8 @@ export type AutopilotEventType =
   | "proposed"
   | "immune_blocked"
   | "immune_passed"
+  | "immune_no_match"
+  | "immune_skipped"
   | "gate_passed"
   | "gate_rejected"
   | "activated"
@@ -397,6 +407,7 @@ export interface AutopilotEvent {
   investigationId?: string;
   antibodyId?: string;
   evidence?: EvidenceItem[];
+  runIds?: string[]; // runs behind a training_run event
   runs?: number;
   ms?: number;
 }

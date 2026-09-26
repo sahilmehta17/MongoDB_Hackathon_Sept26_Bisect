@@ -2,7 +2,7 @@
 // repeat (fixed runIds, keyed events), and records what it saw as a session event with evidence.
 // All decisions use the fixed evidence rules (spec section 4).
 import { proposeLesson, type Proposal } from "@/lib/agent/learn";
-import { regressionDecision } from "@/lib/bisect/evidence";
+import { pickTarget, regressionDecision } from "@/lib/bisect/evidence";
 import { confirm, openBudget, runTrials, screen } from "@/lib/bisect/trials";
 import { getTask } from "@/lib/data";
 import { NotCalibratedError, recognize } from "@/lib/immune/recognize";
@@ -57,12 +57,10 @@ const ev = (p: Probe, kind: EvidenceItem["kind"], status?: EvidenceItem["status"
   runIds: p.runIds,
 });
 
-// The most common failed assertion across some runs: the target to confirm a screen failure on.
-async function mostFailed(runIds: string[]): Promise<string | null> {
-  const runs = await getRunsByIds(runIds);
-  const n = new Map<string, number>();
-  for (const r of runs) for (const a of r.assertions) if (!a.passed) n.set(a.name, (n.get(a.name) ?? 0) + 1);
-  return [...n.entries()].sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0]))[0]?.[0] ?? null;
+// The assertion to confirm a failure on: the most common failed one, ties broken by the task's check order.
+async function targetFor(taskId: string, runIds: string[]): Promise<string> {
+  const [runs, task] = await Promise.all([getRunsByIds(runIds), getTask(taskId)]);
+  return pickTarget(runs, [...task.checks.map((c) => c.name), "within_step_limit"]) ?? "_";
 }
 
 // ---------- session ----------
@@ -134,6 +132,7 @@ export async function trainingRun(sessionId: string, pos: number, taskId: string
     taskId,
     versionId: s.activeVersionId,
     msg: passed ? `${taskId} passed on ${s.activeVersionId}` : `${taskId} failed on ${s.activeVersionId}: ${run.error ?? run.assertions.filter((a) => !a.passed).map((a) => a.name).join(", ")}`,
+    runIds: [run.runId],
     runs: 1,
   });
   return { passed, runId: run.runId };
@@ -159,9 +158,25 @@ export async function announce(sessionId: string, pos: number, item: Extract<Str
 
 export async function immuneCheck(sessionId: string, pos: number, text: string, label: Origin): Promise<"immune_blocked" | "continue"> {
   const s = await getSession(sessionId);
+  const { sessions } = await col();
   try {
+    // This session's antibodies only: the session's agent starts fresh and is guarded by its own convictions.
     const r = await recognize({ text, baseVersionId: s.activeVersionId, label, source: "autopilot", sessionId });
-    if (r.decision === "no_match") return "continue";
+    // The gate reuses the candidate the replay ran on, so the lesson is tested as one version.
+    if (r.candidateVersionId) await sessions.updateOne({ sessionId }, { $set: { candidateVersionId: r.candidateVersionId } });
+    const untestable = r.untestable.map((u) => `${u.antibodyId} (${u.score.toFixed(2)}; this agent already fails its case: ${u.baseLabel})`);
+    if (r.decision === "no_match") {
+      await addEvent(sessionId, {
+        key: `s${pos}-immune`,
+        type: "immune_no_match",
+        label,
+        text,
+        recognitionId: r.recognitionId,
+        ms: r.ms,
+        msg: `no known bad habit matched (threshold ${r.threshold}); on to the gate`,
+      });
+      return "continue";
+    }
     const top = r.replays.find((x) => x.antibodyId === r.blockedBy) ?? r.replays[0];
     await addEvent(sessionId, {
       key: `s${pos}-immune`,
@@ -169,7 +184,7 @@ export async function immuneCheck(sessionId: string, pos: number, text: string, 
       label,
       text,
       recognitionId: r.recognitionId,
-      antibodyId: top?.antibodyId,
+      antibodyId: top?.antibodyId ?? r.untestable[0]?.antibodyId,
       versionId: r.candidateVersionId ?? undefined,
       evidence: r.replays.map((x) => ev(x.probe, "replay")),
       runs: r.runs,
@@ -177,12 +192,17 @@ export async function immuneCheck(sessionId: string, pos: number, text: string, 
       msg:
         r.decision === "immune_blocked"
           ? `blocked in ${(r.ms / 1000).toFixed(1)} s: resembles ${top.antibodyId} (similarity ${top.score.toFixed(2)}) and its case failed ${top.probe.counts.targetFail}/${top.probe.trials} with this rule`
-          : `resembled ${r.replays.map((x) => `${x.antibodyId} (${x.score.toFixed(2)})`).join(", ")} but passed its case; continuing to the gate`,
+          : [
+              r.replays.length ? `resembled ${r.replays.map((x) => `${x.antibodyId} (${x.score.toFixed(2)})`).join(", ")} but passed its case` : "",
+              untestable.length ? `resembled ${untestable.join(", ")}, so a replay couldn't show this rule caused anything` : "",
+            ]
+              .filter(Boolean)
+              .join("; ") + "; on to the gate",
     });
     return r.decision === "immune_blocked" ? "immune_blocked" : "continue";
   } catch (e) {
     if (!(e instanceof NotCalibratedError)) throw e;
-    await addEvent(sessionId, { key: `s${pos}-immune`, type: "immune_passed", label, text, msg: "immune check skipped: threshold not calibrated yet" });
+    await addEvent(sessionId, { key: `s${pos}-immune`, type: "immune_skipped", label, text, msg: "immune check skipped: the threshold isn't calibrated yet" });
     return "continue";
   }
 }
@@ -226,14 +246,14 @@ export async function gate(
 
   // The triggering task must now be GOOD (Confirm, 5 trials).
   if (triggerTaskId) {
-    const target = (await mostFailed([trigger!.runId])) ?? "_";
+    const target = await targetFor(triggerTaskId, [trigger!.runId]);
     const p = await confirm({ ...base, key: `s${pos}-trigger`, phase: "gate", taskId: triggerTaskId, targetAssertion: target });
     evidence.push(ev(p, "trigger"));
     if (p.label !== "GOOD") reasons.push(`the triggering task ${triggerTaskId} is ${p.label} with the lesson`);
   }
 
   // Gate set and pinned set: screen (2 trials); a failure on a previously GOOD task escalates to Confirm.
-  const pinned = await antibodies.find({}, { projection: { _id: 0, failingTaskId: 1, targetAssertion: 1 } }).toArray();
+  const pinned = await antibodies.find({ scope: sessionId }, { projection: { _id: 0, failingTaskId: 1, targetAssertion: 1 } }).toArray();
   const checks = [
     ...s.sets.gate.map((taskId) => ({ taskId, kind: "gate" as const, target: null as string | null })),
     ...pinned.map((a) => ({ taskId: a.failingTaskId, kind: "pinned" as const, target: a.targetAssertion })),
@@ -245,20 +265,21 @@ export async function gate(
         const sp = await screen({ ...base, key: `s${pos}-${c.kind}-${c.taskId}`, phase: "gate", taskId: c.taskId, targetAssertion: c.target ?? "_" });
         if (sp.status === "ok") {
           evidence.push(ev(sp, c.kind, "ok"));
-          if (c.kind === "gate") newStatus[c.taskId] = "GOOD";
+          newStatus[c.taskId] = "GOOD";
           return;
         }
-        const previouslyGood = c.kind === "pinned" || s.status0[c.taskId] === "GOOD";
-        if (!previouslyGood) {
+        // Only regressions block (team decision): a task that already failed before this lesson,
+        // gate task or pinned test alike, can't be broken by it.
+        if (s.status0[c.taskId] !== "GOOD") {
           evidence.push(ev(sp, c.kind, sp.status));
-          if (c.kind === "gate") newStatus[c.taskId] = "not_good";
+          newStatus[c.taskId] = "not_good";
           return;
         }
-        const target = c.target ?? (await mostFailed(sp.runIds)) ?? "_";
+        const target = c.target ?? (await targetFor(c.taskId, sp.runIds));
         const cp = await confirm({ ...base, key: `s${pos}-${c.kind}-${c.taskId}-confirm`, phase: "gate", taskId: c.taskId, targetAssertion: target });
         evidence.push(ev(sp, c.kind, sp.status), ev(cp, c.kind));
         if (cp.label !== "GOOD") reasons.push(`${c.kind === "pinned" ? "pinned test" : "gate task"} ${c.taskId} is ${cp.label} (confirmed, 5 trials)`);
-        else if (c.kind === "gate") newStatus[c.taskId] = "GOOD";
+        else newStatus[c.taskId] = "GOOD";
       }),
     );
   }
@@ -352,7 +373,7 @@ export async function monitor(sessionId: string, key: string): Promise<Regressio
           return;
         }
         if (s.status0[taskId] !== "GOOD") return;
-        const target = (await mostFailed(sp.runIds)) ?? "_";
+        const target = await targetFor(taskId, sp.runIds);
         const cp = await confirm({ ...base, key: `${key}-mon-${taskId}-confirm`, phase: "monitor", taskId, targetAssertion: target });
         evidence.push(ev(cp, "monitor"));
         const d = regressionDecision(cp.label);
@@ -372,7 +393,9 @@ export async function monitor(sessionId: string, key: string): Promise<Regressio
       ? `false alarm on ${falseAlarms.join(", ")}: failed the screen but confirmed GOOD`
       : unclear.length
         ? `monitoring inconclusive on ${unclear.join(", ")}`
-        : `all ${tasks.length} monitoring tasks pass on ${s.activeVersionId} (screened, 2 trials)`;
+        : nowGood.length === tasks.length
+          ? `all ${tasks.length} monitoring tasks pass on ${s.activeVersionId} (screened, 2 trials)`
+          : `no regressions on ${s.activeVersionId}: ${nowGood.length} of ${tasks.length} monitoring tasks pass (screened, 2 trials); the rest already failed before, so they don't count`;
   const type = regressions.length ? "regression_confirmed" : falseAlarms.length ? "false_alarm" : unclear.length ? "insufficient_evidence" : "monitor_ok";
   await addEvent(sessionId, { key: `${key}-monitor`, type, versionId: s.activeVersionId, evidence, runs, msg, ...(regressions[0] ? { taskId: regressions[0].taskId } : {}) }, set as Partial<AutopilotSession>);
   return regressions;
@@ -383,16 +406,17 @@ export async function monitor(sessionId: string, key: string): Promise<Regressio
 export async function startInvestigation(sessionId: string, key: string, reg: Regression): Promise<string> {
   const s = await getSession(sessionId);
   const { investigations } = await col();
-  const existing = await investigations.findOne({ historyId: s.historyId, failureTaskId: reg.taskId, badVersionId: s.activeVersionId });
-  if (existing) return existing.investigationId;
   const { createInvestigation, logInv } = await import("@/lib/bisect/investigation");
-  const investigationId = await createInvestigation({
+  const existing = await investigations.findOne({ historyId: s.historyId, failureTaskId: reg.taskId, badVersionId: s.activeVersionId });
+  if (existing?.workflowRunId) return existing.investigationId;
+  const investigationId = existing?.investigationId ?? await createInvestigation({
     historyId: s.historyId,
     taskId: reg.taskId,
     target: reg.target,
     goodVersionId: s.lastMonitorOkVersionId,
     badVersionId: s.activeVersionId,
     trigger: "autopilot",
+    sessionId,
   });
   const { start } = await import("workflow/api");
   const { investigate } = await import("@/workflows/investigate");
@@ -452,6 +476,13 @@ async function activateRepair(sessionId: string, key: string, investigationId: s
     await appendVersion(s.historyId, repairVersionId);
     await setVersionStatus(repairVersionId, "active");
   }
+  // The repair's re-check measured these tasks on exactly this version: use them as "previously GOOD".
+  const { investigations, sessions } = await col();
+  const inv = await investigations.findOne({ investigationId }, { projection: { recheck: 1, pinned: 1 } });
+  const fresh = Object.fromEntries(
+    [...(inv?.recheck ?? []), ...(inv?.pinned ?? [])].map((r) => [`status0.${r.taskId}`, r.after.label === "GOOD" ? "GOOD" : "not_good"]),
+  );
+  if (Object.keys(fresh).length) await sessions.updateOne({ sessionId }, { $set: fresh });
   await addEvent(
     sessionId,
     { key: `${key}-repair`, type: "repair_activated", investigationId, versionId: repairVersionId, msg: `repair ${repairVersionId} is active: only the convicted lesson was removed` },

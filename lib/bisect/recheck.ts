@@ -61,18 +61,31 @@ export async function buildRecheckSet(o: {
   ]);
   const [aboutLesson, likeFailing] = await Promise.all([nearest(suspectDoc?.embedding, 8), nearest(failingDoc?.embedding, 6)]);
 
-  add(aboutLesson, "related to the suspect lesson (vector search)", 5);
-  add(likeFailing, "similar to the failing request (vector search)", 3);
-  add(roundRobin(usedSuspect.filter((id) => kindOf.has(id)), kindOf), "used the suspect lesson before", 4);
+  const ABOUT = "related to the suspect lesson (vector search)";
+  const LIKE = "similar to the failing request (vector search)";
+  const USED = "used the suspect lesson before";
+  const PASSED = "passed on the current version";
 
-  // Coverage: at least `perKind` of every kind of request, most relevant first.
+  // Coverage first, so the cap can never squeeze out a kind of request: at least `perKind` of every
+  // kind, most relevant first, each labelled with why it's relevant.
+  const sources: [string[], string][] = [
+    [aboutLesson, ABOUT],
+    [likeFailing, LIKE],
+    [usedSuspect, USED],
+    [passedOnCurrent, PASSED],
+    [evalTasks.map((t) => t.taskId), "coverage: every kind of request"],
+  ];
   for (const kind of [...new Set(evalTasks.map((t) => t.workflow))]) {
-    const have = Object.keys(reasons).filter((id) => kindOf.get(id) === kind).length;
-    const ranked = [...aboutLesson, ...usedSuspect, ...likeFailing, ...passedOnCurrent, ...evalTasks.map((t) => t.taskId)].filter(
-      (id, i, all) => kindOf.get(id) === kind && all.indexOf(id) === i,
-    );
-    add(ranked, "coverage: every kind of request", Math.max(0, perKind - have));
+    for (const [ids, reason] of sources) {
+      const have = Object.keys(reasons).filter((id) => kindOf.get(id) === kind).length;
+      if (have >= perKind) break;
+      add(ids.filter((id) => kindOf.get(id) === kind), reason, perKind - have);
+    }
   }
+
+  add(aboutLesson, ABOUT, 5);
+  add(likeFailing, LIKE, 3);
+  add(roundRobin(usedSuspect.filter((id) => kindOf.has(id)), kindOf), USED, 4);
 
   // Controls: a reproducible "random" pick, so re-running an investigation picks the same ones.
   const byHash = evalTasks
@@ -80,7 +93,7 @@ export async function buildRecheckSet(o: {
     .filter((id) => !(id in reasons))
     .sort((a, b) => hash(o.ownerId + a).localeCompare(hash(o.ownerId + b)));
   add(byHash, "control (unrelated task)", 2);
-  add(passedOnCurrent, "passed on the current version");
+  add(passedOnCurrent, PASSED);
 
   return { taskIds: Object.keys(reasons), reasons };
 }

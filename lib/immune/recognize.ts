@@ -6,12 +6,14 @@
 //    try the next.
 // 4. BAD → immune_blocked. 5. Otherwise → immune_passed ("resembled abN but passed its case").
 // Similarity only chooses which case to replay; a false match costs 5 runs, never a wrong block.
-import { immuneDecision } from "@/lib/bisect/evidence";
+// Team decision: a block must mean the proposed rule caused the failure, so a case is replayed only
+// if the base agent passes it (from earlier runs on the base, or one Confirm cached for next time).
+import { classify, countOutcomes, immuneDecision } from "@/lib/bisect/evidence";
 import { confirm, costOf, openBudget } from "@/lib/bisect/trials";
+import { IMMUNE_THRESHOLD, IMMUNE_TOP_K } from "@/lib/immune/threshold";
 import { ANTIBODY_INDEX, col, nextId } from "@/lib/memory/collections";
 import { addLesson, createVersion, queryVector } from "@/lib/memory/lessons";
-import { IMMUNE_THRESHOLD, IMMUNE_TOP_K } from "@/lib/immune/threshold";
-import type { Origin, Recognition } from "@/lib/types";
+import type { Label, Origin, Recognition, Version } from "@/lib/types";
 import { LIMITS } from "@/lib/types";
 
 export class NotCalibratedError extends Error {}
@@ -25,25 +27,42 @@ export interface AntibodyMatch {
 }
 
 // Antibodies most similar to a text (Atlas score, (1 + cosine) / 2), best first. No threshold.
-export async function similarAntibodies(text: string, k = IMMUNE_TOP_K): Promise<AntibodyMatch[]> {
+// `scope` limits the search to one memory (an autopilot session); null searches every antibody.
+export async function similarAntibodies(text: string, k = IMMUNE_TOP_K, scope: string | null = null): Promise<AntibodyMatch[]> {
   const { antibodies } = await col();
-  if ((await antibodies.estimatedDocumentCount()) === 0) return [];
+  if ((await antibodies.countDocuments(scope ? { scope } : {})) === 0) return [];
   const hits = await antibodies
     .aggregate<AntibodyMatch>([
-      { $vectorSearch: { index: ANTIBODY_INDEX, path: "embedding", queryVector: await queryVector(text), numCandidates: 100, limit: k } },
       {
-        $project: {
-          _id: 0,
-          antibodyId: 1,
-          lessonText: 1,
-          failingTaskId: 1,
-          targetAssertion: 1,
-          score: { $meta: "vectorSearchScore" },
+        $vectorSearch: {
+          index: ANTIBODY_INDEX,
+          path: "embedding",
+          queryVector: await queryVector(text),
+          numCandidates: 100,
+          limit: k,
+          ...(scope ? { filter: { scope: { $eq: scope } } } : {}),
         },
       },
+      { $project: { _id: 0, antibodyId: 1, lessonText: 1, failingTaskId: 1, targetAssertion: 1, score: { $meta: "vectorSearchScore" } } },
     ])
     .toArray();
   return hits.sort((a, b) => b.score - a.score || a.antibodyId.localeCompare(b.antibodyId));
+}
+
+// Does the base agent pass this case? Uses the latest 5 normal runs already saved on the base, or
+// runs one Confirm (fixed runIds, so it's paid once and reused).
+export async function baseCaseLabel(baseVersionId: string, taskId: string, target: string): Promise<Label> {
+  const { runs } = await col();
+  const saved = await runs
+    .find({ versionId: baseVersionId, taskId, contextMode: "normal", error: null }, { projection: { _id: 0, assertions: 1, error: 1 } })
+    .sort({ createdAt: -1 })
+    .limit(LIMITS.confirmTrials)
+    .toArray();
+  if (saved.length === LIMITS.confirmTrials) return classify(countOutcomes(saved, target));
+  const owner = `base-${baseVersionId}`;
+  await openBudget(owner, { maxRuns: 200 });
+  const p = await confirm({ key: taskId, ownerId: owner, budgetId: owner, phase: "replay", taskId, versionId: baseVersionId, versionIndex: -1, targetAssertion: target });
+  return p.label;
 }
 
 export async function recognize(o: {
@@ -51,16 +70,19 @@ export async function recognize(o: {
   baseVersionId: string;
   label: Origin;
   source: Recognition["source"];
-  sessionId?: string;
-  threshold?: number; // only scripts may override (calibration); the app always uses IMMUNE_THRESHOLD
+  sessionId?: string; // autopilot: only this session's antibodies, and a stable id so a retry is free
+  threshold?: number; // only scripts may override; the app always uses IMMUNE_THRESHOLD
 }): Promise<Recognition> {
   const threshold = o.threshold ?? IMMUNE_THRESHOLD;
   if (threshold === null) throw new NotCalibratedError("the immune threshold hasn't been calibrated yet");
-  const t0 = Date.now();
-  const { recognitions, antibodies } = await col();
-  const recognitionId = await nextId("rec");
-  const matches = (await similarAntibodies(o.text)).filter((m) => m.score >= threshold);
+  const { recognitions, antibodies, versions } = await col();
+  const recognitionId = o.sessionId ? `rec-${o.sessionId}-${createHashShort(o.text + o.baseVersionId)}` : await nextId("rec");
+  const done = await recognitions.findOne({ recognitionId }, { projection: { _id: 0 } });
+  if (done) return done as Recognition; // retried step: already decided and counted
 
+  const t0 = Date.now();
+  const scope = o.sessionId ?? null;
+  const matches = (await similarAntibodies(o.text, IMMUNE_TOP_K, scope)).filter((m) => m.score >= threshold);
   const rec: Recognition = {
     recognitionId,
     text: o.text,
@@ -71,8 +93,10 @@ export async function recognize(o: {
     candidateVersionId: null,
     lessonId: null,
     threshold,
+    scope,
     matches: matches.map(({ antibodyId, score, lessonText }) => ({ antibodyId, score, lessonText })),
     replays: [],
+    untestable: [],
     decision: "no_match",
     blockedBy: null,
     ms: 0,
@@ -81,20 +105,30 @@ export async function recognize(o: {
   };
 
   if (matches.length) {
-    const lesson = await addLesson(o.text, { origin: o.label });
-    const candidate = await createVersion({
-      parentVersionId: o.baseVersionId,
-      change: { op: "add", lessonId: lesson.lessonId },
-      label: o.label,
-      createdBy: "immune",
-      status: "candidate",
-      note: `candidate for recognition ${recognitionId}`,
-    });
-    rec.lessonId = lesson.lessonId;
+    // The candidate: base + the proposed lesson (reused if a retried attempt already made it).
+    const note = `candidate for recognition ${recognitionId}`;
+    let candidate: Pick<Version, "versionId" | "change"> | null = await versions.findOne({ note }, { projection: { _id: 0, versionId: 1, change: 1 } });
+    if (!candidate) {
+      const lesson = await addLesson(o.text, { origin: o.label });
+      candidate = await createVersion({
+        parentVersionId: o.baseVersionId,
+        change: { op: "add", lessonId: lesson.lessonId },
+        label: o.label,
+        createdBy: "immune",
+        status: "candidate",
+        note,
+      });
+    }
     rec.candidateVersionId = candidate.versionId;
+    rec.lessonId = candidate.change!.lessonId;
     await openBudget(recognitionId, { maxRuns: IMMUNE_TOP_K * LIMITS.confirmTrials });
 
     for (const m of matches) {
+      const baseLabel = await baseCaseLabel(o.baseVersionId, m.failingTaskId, m.targetAssertion);
+      if (baseLabel !== "GOOD") {
+        rec.untestable.push({ antibodyId: m.antibodyId, score: m.score, baseLabel });
+        continue;
+      }
       const probe = await confirm({
         key: `replay-${m.antibodyId}`,
         ownerId: recognitionId,
@@ -106,9 +140,7 @@ export async function recognize(o: {
         targetAssertion: m.targetAssertion,
       });
       rec.replays.push({ antibodyId: m.antibodyId, score: m.score, probe });
-      const blocked = immuneDecision(probe.label) === "immune_blocked";
-      await antibodies.updateOne({ antibodyId: m.antibodyId }, { $inc: { recognitions: 1, ...(blocked ? { blocks: 1 } : {}) } });
-      if (blocked) {
+      if (immuneDecision(probe.label) === "immune_blocked") {
         rec.blockedBy = m.antibodyId;
         break;
       }
@@ -117,8 +149,25 @@ export async function recognize(o: {
     rec.runs = (await costOf(recognitionId)).runs;
   }
   rec.ms = Date.now() - t0;
-  await recognitions.insertOne({ ...rec });
+
+  // Save first; count recognitions and blocks only when this attempt is the one that saved it.
+  try {
+    await recognitions.insertOne({ ...rec });
+  } catch (e) {
+    const existing = await recognitions.findOne({ recognitionId }, { projection: { _id: 0 } });
+    if (existing) return existing as Recognition;
+    throw e;
+  }
+  for (const r of rec.replays) {
+    await antibodies.updateOne({ antibodyId: r.antibodyId }, { $inc: { recognitions: 1, ...(r.antibodyId === rec.blockedBy ? { blocks: 1 } : {}) } });
+  }
   return rec;
+}
+
+function createHashShort(s: string): string {
+  let h = 5381;
+  for (let i = 0; i < s.length; i++) h = ((h * 33) ^ s.charCodeAt(i)) >>> 0;
+  return h.toString(36);
 }
 
 // Antibodies are searchable a moment after insert (Atlas Search is eventually consistent).

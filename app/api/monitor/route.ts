@@ -1,8 +1,9 @@
 import { NextResponse } from "next/server";
 import { start } from "workflow/api";
-import { regressionDecision } from "@/lib/bisect/evidence";
+import { pickTarget, regressionDecision } from "@/lib/bisect/evidence";
 import { createInvestigation, logInv } from "@/lib/bisect/investigation";
 import { confirm, openBudget, screen } from "@/lib/bisect/trials";
+import { getTask } from "@/lib/data";
 import { getAutopilotSets } from "@/lib/data/stored";
 import { getHistory } from "@/lib/memory/histories";
 import { getRunsByIds } from "@/lib/memory/runs";
@@ -33,8 +34,8 @@ export async function POST(req: Request) {
       results.push({ taskId, screen: s.status, counts: s.counts });
       continue;
     }
-    const failed = (await getRunsByIds(s.runIds)).flatMap((r) => r.assertions.filter((a) => !a.passed).map((a) => a.name));
-    const target = [...new Set(failed)].sort((a, b) => failed.filter((x) => x === b).length - failed.filter((x) => x === a).length)[0] ?? "_";
+    const task = await getTask(taskId);
+    const target = pickTarget(await getRunsByIds(s.runIds), [...task.checks.map((c) => c.name), "within_step_limit"]) ?? "_";
     const c = await confirm({ ...base, key: `confirm-${taskId}`, phase: "monitor", targetAssertion: target });
     const decision = regressionDecision(c.label);
     results.push({ taskId, screen: s.status, confirm: c.label, counts: c.counts, target, decision });

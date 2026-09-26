@@ -21,6 +21,7 @@ export async function createInvestigation(input: {
   goodVersionId?: string;
   badVersionId?: string;
   trigger?: Investigation["trigger"];
+  sessionId?: string;
 }): Promise<string> {
   const history = await getHistory(input.historyId).catch(() => null);
   if (!history) throw new InputError(`history ${input.historyId} not found`);
@@ -55,6 +56,7 @@ export async function createInvestigation(input: {
     investigationId,
     historyId: input.historyId,
     trigger: input.trigger ?? "manual",
+    ...(input.sessionId ? { sessionId: input.sessionId } : {}),
     failureTaskId: input.taskId,
     targetAssertion: input.target,
     goodVersionId: line[0].versionId,
@@ -226,7 +228,8 @@ export async function recheckSet(investigationId: string, currentVersionId: stri
 export async function pinnedSet(investigationId: string): Promise<{ taskId: string; target: string }[]> {
   const inv = await getInvestigation(investigationId);
   const { antibodies } = await col();
-  const list = await antibodies.find({}, { projection: { _id: 0, failingTaskId: 1, targetAssertion: 1 } }).toArray();
+  const { scopeOf } = await import("@/lib/immune/antibodies");
+  const list = await antibodies.find({ scope: scopeOf(inv) }, { projection: { _id: 0, failingTaskId: 1, targetAssertion: 1 } }).toArray();
   const seen = new Set<string>([inv.failureTaskId]);
   return list
     .filter((a) => !seen.has(a.failingTaskId) && seen.add(a.failingTaskId))
@@ -262,6 +265,8 @@ export async function closeInvestigation(
   if (set.acceptance === "accepted" && inv.repairVersionId) {
     const { versions } = await col();
     await versions.updateOne({ versionId: inv.repairVersionId }, { $set: { status: "active" } });
+    const antibodyId = (set.antibodyId as string | undefined) ?? inv.antibodyId;
+    if (antibodyId) await (await import("@/lib/immune/antibodies")).markRepaired(antibodyId);
   }
   return verdict;
 }

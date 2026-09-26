@@ -77,3 +77,13 @@ test("regression: BAD → confirmed, GOOD → false alarm", () => {
   assert.equal(regressionDecision("GOOD"), "false_alarm");
   assert.equal(regressionDecision("INCONCLUSIVE"), "inconclusive");
 });
+
+test("pickTarget: most failures first, ties by the task's check order, not the alphabet", async () => {
+  const { pickTarget } = await import("@/lib/bisect/evidence");
+  const order = ["refund_issued", "no_duplicate_refund", "correct_amount", "checked_payment_status_after_timeout", "within_step_limit"];
+  const dup = run([["refund_issued", true], ["no_duplicate_refund", false], ["correct_amount", false], ["checked_payment_status_after_timeout", false]]);
+  assert.equal(pickTarget([dup, dup], order), "no_duplicate_refund");
+  const other = run([["refund_issued", false], ["no_duplicate_refund", true]]);
+  assert.equal(pickTarget([dup, other, other], order), "refund_issued"); // 2 failures beat 1
+  assert.equal(pickTarget([run([["a", true]])], order), null);
+});

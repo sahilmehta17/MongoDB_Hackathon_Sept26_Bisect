@@ -56,6 +56,9 @@ async function run(inv: string): Promise<Verdict> {
   //    (its parent isn't GOOD or it isn't BAD), scan up to 8 nearby versions one by one, once.
   let result = await verify(inv, line, bad, "verify");
   if (result.verdict === "inconclusive" && (result.parent !== "GOOD" || result.introducing !== "BAD")) {
+    // The fresh verification results replace what the search saw for these two versions.
+    labels[bad - 1] = result.parent;
+    labels[bad] = result.introducing;
     const scanned = await linearScan(inv, line, bad, labels);
     if (scanned !== -1 && scanned !== bad) {
       bad = scanned;
@@ -67,6 +70,8 @@ async function run(inv: string): Promise<Verdict> {
   }
   const suspect = line[bad].lessonId!;
   const current = line[last].versionId;
+  // A verified conviction becomes an antibody now, whether or not the repair is later accepted.
+  const antibodyId = await makeAntibody(inv, "awaiting_decision");
 
   // 4. Selective undo, then 5. re-check other behavior on the frozen set, 3 tasks at a time.
   const repair = await makeRepair(inv, current, suspect);
@@ -89,7 +94,6 @@ async function run(inv: string): Promise<Verdict> {
     failing.after.label,
     rows.map((r) => ({ taskId: r.taskId, before: r.before.label, after: r.after.label })),
   );
-  const antibodyId = await makeAntibody(inv, decision.accepted ? "removed" : "awaiting_decision");
   return close(
     inv,
     "verified",

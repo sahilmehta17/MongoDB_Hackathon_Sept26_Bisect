@@ -77,3 +77,15 @@ export function regressionDecision(confirm: Label): "regression_confirmed" | "fa
   if (confirm === "GOOD") return "false_alarm";
   return "inconclusive";
 }
+
+// Which assertion to confirm a screen failure on: the one that failed most often; ties go to the
+// task's own check order (so a double refund confirms on the task's first failing check).
+export function pickTarget(runs: Pick<RunRecord, "assertions">[], checkOrder: string[]): string | null {
+  const n = new Map<string, number>();
+  for (const r of runs) for (const a of r.assertions) if (!a.passed) n.set(a.name, (n.get(a.name) ?? 0) + 1);
+  const rank = (name: string) => {
+    const i = checkOrder.indexOf(name);
+    return i === -1 ? checkOrder.length : i;
+  };
+  return [...n.entries()].sort((a, b) => b[1] - a[1] || rank(a[0]) - rank(b[0]))[0]?.[0] ?? null;
+}

@@ -60,7 +60,7 @@ export const ANTIBODY_INDEX = "antibodies_vec";
 const VECTOR_INDEXES: { coll: "lessons" | "tasks" | "antibodies"; name: string; filters: string[] }[] = [
   { coll: "lessons", name: LESSON_INDEX, filters: ["lessonId"] },
   { coll: "tasks", name: TASK_INDEX, filters: ["taskId", "split", "workflow"] },
-  { coll: "antibodies", name: ANTIBODY_INDEX, filters: ["antibodyId"] },
+  { coll: "antibodies", name: ANTIBODY_INDEX, filters: ["antibodyId", "scope"] },
 ];
 
 function vectorDefinition(filters: string[]) {
