@@ -90,7 +90,6 @@ export default function ProposeInline({ shield, baseVersionId, tried }: { shield
   const draftCard: StageCard = {
     key: `draft-${attempt}`,
     text: text || "Your rule",
-    tag: "visitor",
     origin: "visitor",
     state: outcome === "blocked" ? "blocked" : outcome === "passed" && allGood ? "passed" : "incoming",
     note: outcome === "blocked" ? "blocked" : outcome === "passed" ? (allGood ? "passed this replay" : "not blocked") : outcome === "no_match" ? "no match" : undefined,
@@ -118,6 +117,27 @@ export default function ProposeInline({ shield, baseVersionId, tried }: { shield
           </span>
         </div>
         <RuleCard key={draftCard.key} card={draftCard} />
+      </div>
+
+      <div aria-live="polite" className={styles.outcome}>
+        {calibrated === false && <p className={styles.muted}>{CALIBRATING}</p>}
+        {running && <p className={styles.muted}>Replaying the old failing request with this rule ({LIMITS.confirmTrials} fresh runs)…</p>}
+        {status.kind === "error" && <p className={styles.error}>Couldn&apos;t check this rule: {status.message}</p>}
+        {rec && copy && (
+          <>
+            <p className={styles.resultLine}>
+              {copy.lead && <strong data-outcome={outcome === "blocked" ? "bad" : "good"}>{copy.lead}</strong>} {copy.text}
+              {outcome !== "blocked" && <span className={styles.mono}> {fmtSeconds(rec.ms)}</span>}
+              {href && (
+                <>
+                  {" "}
+                  <Link href={href}>See the trace ▸</Link>
+                </>
+              )}
+            </p>
+            {replay && <Dots label="Replay" fail={replay.probe.counts.targetFail} total={replay.probe.trials} note={replay.probe.counts.targetFail ? "the old failure came back" : "the old failure didn't come back"} />}
+          </>
+        )}
       </div>
 
       <form className={styles.form} onSubmit={submit}>
@@ -150,26 +170,6 @@ export default function ProposeInline({ shield, baseVersionId, tried }: { shield
         )}
       </form>
 
-      <div aria-live="polite" className={styles.outcome}>
-        {calibrated === false && <p className={styles.muted}>{CALIBRATING}</p>}
-        {running && <p className={styles.muted}>Replaying the old failing request with this rule ({LIMITS.confirmTrials} fresh runs)…</p>}
-        {status.kind === "error" && <p className={styles.error}>Couldn&apos;t check this rule: {status.message}</p>}
-        {rec && copy && (
-          <>
-            <p className={styles.resultLine}>
-              {copy.lead && <strong data-outcome={outcome === "blocked" ? "bad" : "good"}>{copy.lead}</strong>} {copy.text}{" "}
-              <span className={styles.mono}>{fmtSeconds(rec.ms)}</span>
-              {href && (
-                <>
-                  {" "}
-                  <Link href={href}>See the trace ▸</Link>
-                </>
-              )}
-            </p>
-            {replay && <Dots label="Replay" fail={replay.probe.counts.targetFail} total={replay.probe.trials} note={replay.probe.counts.targetFail ? "the old failure came back" : "the old failure didn't come back"} />}
-          </>
-        )}
-      </div>
     </div>
   );
 }
