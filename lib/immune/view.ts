@@ -9,7 +9,7 @@ import type { ImmuneView } from "@/lib/types";
 type MenuDoc = { _id: string; items: ImmuneView["menu"] };
 
 export async function immuneView(): Promise<ImmuneView> {
-  const { antibodies, investigations, recognitions, versions } = await col();
+  const { antibodies, investigations, recognitions, versions, sessions } = await col();
   const abs = await antibodies.find({}, { projection: { _id: 0, embedding: 0 } }).sort({ createdAt: 1 }).toArray();
 
   const withFirst = await Promise.all(
@@ -34,6 +34,9 @@ export async function immuneView(): Promise<ImmuneView> {
     .limit(10)
     .toArray();
   const baseline = await baselineVersionId();
+  // The default base is the latest finished autopilot session's agent (the demo agent), so later
+  // manual investigations don't silently change what "Propose a rule" tests against.
+  const demo = await sessions.findOne({ status: "done" }, { sort: { finishedAt: -1 }, projection: { _id: 0, sessionId: 1, activeVersionId: 1 } });
   const menuDoc = await (await getDb()).collection<MenuDoc>("config").findOne({ _id: "immune_menu" });
 
   return {
@@ -57,7 +60,8 @@ export async function immuneView(): Promise<ImmuneView> {
         : null,
     },
     baseVersions: [
-      ...repairs.map((v) => ({
+      ...(demo ? [{ versionId: demo.activeVersionId, label: `${demo.activeVersionId}: the autopilot agent (${demo.sessionId}) after Bisect's repair` }] : []),
+      ...repairs.filter((v) => v.versionId !== demo?.activeVersionId).map((v) => ({
         versionId: v.versionId,
         label: `${v.versionId}: the agent after ${v.investigationId} removed ${v.change?.lessonId ?? "a lesson"}`,
       })),
