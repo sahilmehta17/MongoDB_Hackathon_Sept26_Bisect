@@ -465,8 +465,11 @@ function bisectRow(started: AutopilotEvent, inv: InvestigationView | undefined):
   const withIt = last("current");
   const without = last("current_minus_suspect");
   const harm = HARM[i.targetAssertion] ?? "failures";
+  // Exact re-check wording: tasks that passed before the repair vs tasks the repair also fixed.
   const others = i.recheck.filter((r) => r.taskId !== i.failureTaskId);
-  const stillGood = others.filter((r) => r.after.label === "GOOD").length;
+  const passedBefore = others.filter((r) => r.before?.label === "GOOD");
+  const kept = passedBefore.filter((r) => r.after?.label === "GOOD").length;
+  const fixed = others.filter((r) => r.before?.label !== "GOOD" && r.after?.label === "GOOD").length;
   const probed = new Set(i.probes.map((p) => p.versionId)).size;
   const seconds = Math.round(inv.elapsedMs / 1000);
   const accepted = i.acceptance === "accepted";
@@ -480,7 +483,7 @@ function bisectRow(started: AutopilotEvent, inv: InvestigationView | undefined):
       `With it: ${withIt?.counts.targetFail ?? "?"} of ${withIt?.trials ?? 5} ${harm}. Without it: ${without?.counts.targetFail ?? "?"} of ${without?.trials ?? 5}.`,
       `${
         accepted
-          ? `Removed only that rule. ${stillGood === others.length ? `All ${others.length}` : `${stillGood} of ${others.length}`} other tasks still pass.`
+          ? `Removed only that rule. ${kept === passedBefore.length ? `All ${passedBefore.length}` : `${kept} of ${passedBefore.length}`} tasks that passed before still pass${fixed ? `, and ${fixed} that failed now pass` : ""}.`
           : "Removing it needs a person to decide."
       } ${shortDuration(seconds)}, ${inv.cost.runs} runs.`,
     ],

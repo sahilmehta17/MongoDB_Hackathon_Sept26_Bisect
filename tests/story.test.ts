@@ -53,8 +53,12 @@ test("the Bisect row's numbers come from the investigation", () => {
   const b = story.rows.find((r) => r.kind === "bisect")!;
   const i = inv.investigation;
   const others = i.recheck.filter((r) => r.taskId !== i.failureTaskId);
+  const passedBefore = others.filter((r) => r.before.label === "GOOD");
+  const fixed = others.filter((r) => r.before.label !== "GOOD" && r.after.label === "GOOD");
+  assert.equal(passedBefore.length, 13); // ap2: 13 passed before and still pass, 2 failed before and now pass
+  assert.equal(fixed.length, 2);
   assert.equal(b.line2[0], "With it: 5 of 5 double refunds. Without it: 0 of 5.");
-  assert.equal(b.line2[1], `Removed only that rule. All ${others.length} other tasks still pass. ${Math.round(inv.elapsedMs / 1000)} s, ${inv.cost.runs} runs.`);
+  assert.equal(b.line2[1], `Removed only that rule. All 13 tasks that passed before still pass, and 2 that failed now pass. ${Math.round(inv.elapsedMs / 1000)} s, ${inv.cost.runs} runs.`);
   assert.ok(b.expand[0].startsWith(`Searched ${i.line.length} versions, tested ${new Set(i.probes.map((p) => p.versionId)).size}.`));
   assert.ok(b.open);
 });

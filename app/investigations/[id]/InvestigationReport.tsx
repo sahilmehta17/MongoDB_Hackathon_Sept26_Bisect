@@ -430,7 +430,7 @@ function SummaryCards({ view }: { view: InvestigationView }) {
   let fixBody: React.ReactNode = null;
   if (inv.acceptance === "accepted") {
     fixTone = "good";
-    fixHead = "Removed only this lesson; everything else still passes.";
+    fixHead = "Removed only this lesson; every task that passed before still passes.";
     fixBody = (
       <>
         Repair version <code>{inv.repairVersionId}</code> · {plural(inv.recheck.length, "task")} re-checked

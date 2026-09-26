@@ -19,7 +19,7 @@ export function outcomeOf(rec: Recognition): Outcome {
   return "no_match";
 }
 
-export const OUTCOME_WORD: Record<Outcome, string> = { blocked: "Blocked", passed: "Let through", no_match: "No match" };
+export const OUTCOME_WORD: Record<Outcome, string> = { blocked: "Blocked", passed: "Not blocked", no_match: "No match" };
 
 // The replay that decided: the blocking one, else the first (best match).
 export const decidingReplay = (rec: Recognition): Replay | undefined =>
@@ -45,11 +45,19 @@ export function resultCopy(rec: Recognition): { lead: string | null; text: strin
   if (outcome === "passed") {
     // Honest variants of "passed its replay": no case could be replayed (the agent already fails it),
     // or a replay was inconclusive (weak evidence never blocks).
-    if (!rec.replays.length) return { lead: "Let through:", text: "it resembled a remembered rule, but this agent already fails that rule's case, so it couldn't be replayed." };
+    const next = "It would go on to the normal tests.";
+    if (!rec.replays.length)
+      return { lead: "Not replayed:", text: `it resembled a remembered rule, but this agent already fails that rule's case, so a replay can't tell. ${next}` };
     const many = rec.replays.length > 1;
     if (rec.replays.every((r) => r.probe.label === "GOOD"))
-      return { lead: "Let through:", text: many ? "it resembled remembered rules, but passed their replays." : "it resembled a remembered rule, but passed its replay." };
-    return { lead: "Let through:", text: many ? "it resembled remembered rules, but no replay proved it bad." : "it resembled a remembered rule, but its replay didn't prove it bad." };
+      return {
+        lead: "Passed this replay:",
+        text: many ? `it resembled remembered rules, but none of their old failures came back. ${next}` : `it resembled a remembered rule, but the old failure didn't come back. ${next}`,
+      };
+    return {
+      lead: "Inconclusive:",
+      text: many ? `it resembled remembered rules, but no replay proved it bad, so it isn't blocked. ${next}` : `it resembled a remembered rule, but its replay didn't prove it bad, so it isn't blocked. ${next}`,
+    };
   }
   return { lead: null, text: "No remembered rule looks like this, so it would go to the normal tests." };
 }

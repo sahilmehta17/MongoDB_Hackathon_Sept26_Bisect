@@ -90,7 +90,7 @@ export default function Home() {
         </h1>
         <div className={styles.actions}>
           <Link className={styles.primary} href="/story?play=1">
-            Watch the agent learn
+            Replay the recorded session
           </Link>
           <Link className={styles.secondary} href="/story?try=1">
             Try to sneak a bad rule past it
