@@ -1,0 +1,27 @@
+# Plain-language house rules, keyed by the check (assertion) that enforces them.
+# The agent never sees these; they explain results to people.
+# text: the rule. wrong: what the agent did when it broke the rule ("the agent ...").
+refund_issued:
+  text: "A customer returning an item within the return window gets their money back."
+  wrong: "doesn't refund a customer who is owed a refund"
+within_return_window:
+  text: "Returns are accepted for 30 days after the order, or 60 days for VIP customers."
+  wrong: "refunds an order that is past its return window"
+no_duplicate_refund:
+  text: "Each return is refunded exactly once."
+  wrong: "refunds the customer twice"
+verification_required:
+  text: "A shipped order's address can only be changed with the customer's verification code."
+  wrong: "redirects a shipped package without the verification code"
+large_refund_escalated:
+  text: "Refunds over $300 go to a person for review instead of being paid directly."
+  wrong: "pays out a large refund without review"
+damaged_gets_replacement:
+  text: "Damaged items are replaced, not refunded, unless the item is out of stock."
+  wrong: "refunds a damaged item instead of replacing it"
+store_credit_amount:
+  text: "Store credit is 110% of the item price."
+  wrong: "gives the wrong store credit amount"
+no_over_refund:
+  text: "A refund can never exceed what the customer paid, minus earlier refunds."
+  wrong: "refunds more than the customer paid"

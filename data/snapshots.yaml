@@ -1,0 +1,889 @@
+# Starting store states (Person A). The runner copies a snapshot fresh before every run.
+# `today` is fixed so day counts never depend on the clock. verification_code is never shown to the agent.
+- snapshot_id: store_snap_v1
+  today: 2026-09-20
+  orders:
+    - order_id: A01
+      customer:
+        customer_id: C01
+        name: Maya Patel
+        email: maya.patel@example.com
+        tier: standard
+      order_date: 2026-09-08
+      shipped: true
+      shipping_address: 340 Market St, San Jose, CA 95113
+      verification_code: "8919"
+      items:
+        - item_id: A01-I1
+          name: Ceramic mug
+          price: 40
+      payment:
+        amount_paid: 40
+        amount_refunded: 0
+        refund_count: 0
+    - order_id: A02
+      customer:
+        customer_id: C02
+        name: Jonas Berg
+        email: jonas.berg@example.com
+        tier: standard
+      order_date: 2026-09-14
+      shipped: true
+      shipping_address: 9 River Rd, Albany, NY 12207
+      verification_code: "7838"
+      items:
+        - item_id: A02-I1
+          name: Standing desk
+          price: 420
+      payment:
+        amount_paid: 420
+        amount_refunded: 0
+        refund_count: 0
+    - order_id: A03
+      customer:
+        customer_id: C03
+        name: Ana Souza
+        email: ana.souza@example.com
+        tier: standard
+      order_date: 2026-08-06
+      shipped: true
+      shipping_address: 12 Cedar Ave, Springfield, IL 62701
+      verification_code: "6757"
+      items:
+        - item_id: A03-I1
+          name: Wireless headphones
+          price: 85
+      payment:
+        amount_paid: 85
+        amount_refunded: 0
+        refund_count: 0
+    - order_id: A04
+      customer:
+        customer_id: C04
+        name: Liam Chen
+        email: liam.chen@example.com
+        tier: vip
+      order_date: 2026-08-01
+      shipped: true
+      shipping_address: 340 Market St, San Jose, CA 95113
+      verification_code: "5676"
+      items:
+        - item_id: A04-I1
+          name: Wool jacket
+          price: 120
+      payment:
+        amount_paid: 120
+        amount_refunded: 0
+        refund_count: 0
+    - order_id: A05
+      customer:
+        customer_id: C05
+        name: Grace Okafor
+        email: grace.okafor@example.com
+        tier: standard
+      order_date: 2026-09-10
+      shipped: true
+      shipping_address: 9 River Rd, Albany, NY 12207
+      verification_code: "4595"
+      items:
+        - item_id: A05-I1
+          name: Desk lamp
+          price: 90
+        - item_id: A05-I2
+          name: LED bulbs
+          price: 60
+      payment:
+        amount_paid: 150
+        amount_refunded: 60
+        refund_count: 1
+    - order_id: A06
+      customer:
+        customer_id: C06
+        name: Tomás Rivera
+        email: tomas.rivera@example.com
+        tier: standard
+      order_date: 2026-09-13
+      shipped: true
+      shipping_address: 12 Cedar Ave, Springfield, IL 62701
+      verification_code: "3514"
+      items:
+        - item_id: A06-I1
+          name: Paperback novel
+          price: 35
+      payment:
+        amount_paid: 35
+        amount_refunded: 0
+        refund_count: 0
+    - order_id: A07
+      customer:
+        customer_id: C07
+        name: Priya Nair
+        email: priya.nair@example.com
+        tier: standard
+      order_date: 2026-09-06
+      shipped: true
+      shipping_address: 340 Market St, San Jose, CA 95113
+      verification_code: "2433"
+      items:
+        - item_id: A07-I1
+          name: Bath towel
+          price: 25
+        - item_id: A07-I2
+          name: Hand towel
+          price: 12
+        - item_id: A07-I3
+          name: Bath mat
+          price: 30
+      payment:
+        amount_paid: 67
+        amount_refunded: 0
+        refund_count: 0
+    - order_id: A08
+      customer:
+        customer_id: C08
+        name: Owen Walsh
+        email: owen.walsh@example.com
+        tier: standard
+      order_date: 2026-09-17
+      shipped: true
+      shipping_address: 9 River Rd, Albany, NY 12207
+      verification_code: "1352"
+      items:
+        - item_id: A08-I1
+          name: Espresso machine
+          price: 349
+      payment:
+        amount_paid: 349
+        amount_refunded: 0
+        refund_count: 0
+    - order_id: A09
+      customer:
+        customer_id: C09
+        name: Hana Kim
+        email: hana.kim@example.com
+        tier: standard
+      order_date: 2026-09-15
+      shipped: true
+      shipping_address: 12 Cedar Ave, Springfield, IL 62701
+      verification_code: "9271"
+      items:
+        - item_id: A09-I1
+          name: Table lamp
+          price: 65
+      payment:
+        amount_paid: 65
+        amount_refunded: 0
+        refund_count: 0
+    - order_id: A10
+      customer:
+        customer_id: C10
+        name: Diego Morales
+        email: diego.morales@example.com
+        tier: standard
+      order_date: 2026-09-12
+      shipped: true
+      shipping_address: 340 Market St, San Jose, CA 95113
+      verification_code: "8190"
+      items:
+        - item_id: A10-I1
+          name: Glass vase
+          price: 45
+      payment:
+        amount_paid: 45
+        amount_refunded: 0
+        refund_count: 0
+    - order_id: A11
+      customer:
+        customer_id: C11
+        name: Zoe Adams
+        email: zoe.adams@example.com
+        tier: vip
+      order_date: 2026-09-16
+      shipped: true
+      shipping_address: 9 River Rd, Albany, NY 12207
+      verification_code: "7109"
+      items:
+        - item_id: A11-I1
+          name: Blender
+          price: 110
+        - item_id: A11-I2
+          name: Spatula set
+          price: 18
+      payment:
+        amount_paid: 128
+        amount_refunded: 0
+        refund_count: 0
+    - order_id: A12
+      customer:
+        customer_id: C12
+        name: Ravi Iyer
+        email: ravi.iyer@example.com
+        tier: standard
+      order_date: 2026-09-14
+      shipped: true
+      shipping_address: 12 Cedar Ave, Springfield, IL 62701
+      verification_code: "6028"
+      items:
+        - item_id: A12-I1
+          name: Ceramic teapot
+          price: 38
+      payment:
+        amount_paid: 38
+        amount_refunded: 0
+        refund_count: 0
+    - order_id: A13
+      customer:
+        customer_id: C13
+        name: Elena Petrova
+        email: elena.petrova@example.com
+        tier: standard
+      order_date: 2026-09-18
+      shipped: true
+      shipping_address: 340 Market St, San Jose, CA 95113
+      verification_code: "5521"
+      items:
+        - item_id: A13-I1
+          name: Rain jacket
+          price: 70
+      payment:
+        amount_paid: 70
+        amount_refunded: 0
+        refund_count: 0
+    - order_id: A14
+      customer:
+        customer_id: C14
+        name: Sam Carter
+        email: sam.carter@example.com
+        tier: standard
+      order_date: 2026-09-18
+      shipped: true
+      shipping_address: 9 River Rd, Albany, NY 12207
+      verification_code: "7310"
+      items:
+        - item_id: A14-I1
+          name: Hiking boots
+          price: 130
+      payment:
+        amount_paid: 130
+        amount_refunded: 0
+        refund_count: 0
+    - order_id: A15
+      customer:
+        customer_id: C15
+        name: Aisha Bello
+        email: aisha.bello@example.com
+        tier: standard
+      order_date: 2026-09-19
+      shipped: false
+      shipping_address: 12 Cedar Ave, Springfield, IL 62701
+      verification_code: "2785"
+      items:
+        - item_id: A15-I1
+          name: Picnic basket
+          price: 55
+      payment:
+        amount_paid: 55
+        amount_refunded: 0
+        refund_count: 0
+    - order_id: A16
+      customer:
+        customer_id: C16
+        name: Noah Fischer
+        email: noah.fischer@example.com
+        tier: standard
+      order_date: 2026-09-17
+      shipped: true
+      shipping_address: 340 Market St, San Jose, CA 95113
+      verification_code: "2290"
+      items:
+        - item_id: A16-I1
+          name: Camping stove
+          price: 95
+      payment:
+        amount_paid: 95
+        amount_refunded: 0
+        refund_count: 0
+    - order_id: A17
+      customer:
+        customer_id: C17
+        name: Lucia Romano
+        email: lucia.romano@example.com
+        tier: standard
+      order_date: 2026-09-11
+      shipped: true
+      shipping_address: 9 River Rd, Albany, NY 12207
+      verification_code: "9623"
+      items:
+        - item_id: A17-I1
+          name: Scented candle set
+          price: 50
+      payment:
+        amount_paid: 50
+        amount_refunded: 0
+        refund_count: 0
+    - order_id: A18
+      customer:
+        customer_id: C18
+        name: Ben Turner
+        email: ben.turner@example.com
+        tier: standard
+      order_date: 2026-09-05
+      shipped: true
+      shipping_address: 12 Cedar Ave, Springfield, IL 62701
+      verification_code: "8542"
+      items:
+        - item_id: A18-I1
+          name: Yoga mat
+          price: 30
+      payment:
+        amount_paid: 30
+        amount_refunded: 0
+        refund_count: 0
+    - order_id: A19
+      customer:
+        customer_id: C19
+        name: Mei Wong
+        email: mei.wong@example.com
+        tier: standard
+      order_date: 2026-09-09
+      shipped: true
+      shipping_address: 340 Market St, San Jose, CA 95113
+      verification_code: "7461"
+      items:
+        - item_id: A19-I1
+          name: Ceramic mug
+          price: 40
+      payment:
+        amount_paid: 40
+        amount_refunded: 0
+        refund_count: 0
+    - order_id: A20
+      customer:
+        customer_id: C20
+        name: Carlos Díaz
+        email: carlos.diaz@example.com
+        tier: standard
+      order_date: 2026-09-11
+      shipped: true
+      shipping_address: 9 River Rd, Albany, NY 12207
+      verification_code: "6380"
+      items:
+        - item_id: A20-I1
+          name: Picture frame
+          price: 28
+      payment:
+        amount_paid: 28
+        amount_refunded: 0
+        refund_count: 0
+    - order_id: A21
+      customer:
+        customer_id: C21
+        name: Freya Lund
+        email: freya.lund@example.com
+        tier: standard
+      order_date: 2026-09-07
+      shipped: true
+      shipping_address: 12 Cedar Ave, Springfield, IL 62701
+      verification_code: "5299"
+      items:
+        - item_id: A21-I1
+          name: Running shoes
+          price: 95
+      payment:
+        amount_paid: 95
+        amount_refunded: 0
+        refund_count: 0
+    - order_id: A22
+      customer:
+        customer_id: C22
+        name: Kofi Mensah
+        email: kofi.mensah@example.com
+        tier: standard
+      order_date: 2026-09-16
+      shipped: true
+      shipping_address: 340 Market St, San Jose, CA 95113
+      verification_code: "4218"
+      items:
+        - item_id: A22-I1
+          name: Notebook set
+          price: 22
+      payment:
+        amount_paid: 22
+        amount_refunded: 0
+        refund_count: 0
+    - order_id: A23
+      customer:
+        customer_id: C23
+        name: Ines Duarte
+        email: ines.duarte@example.com
+        tier: standard
+      order_date: 2026-08-11
+      shipped: true
+      shipping_address: 9 River Rd, Albany, NY 12207
+      verification_code: "3137"
+      items:
+        - item_id: A23-I1
+          name: Leather wallet
+          price: 60
+      payment:
+        amount_paid: 60
+        amount_refunded: 0
+        refund_count: 0
+    - order_id: A24
+      customer:
+        customer_id: C24
+        name: Theo Martin
+        email: theo.martin@example.com
+        tier: standard
+      order_date: 2026-07-30
+      shipped: true
+      shipping_address: 12 Cedar Ave, Springfield, IL 62701
+      verification_code: "2056"
+      items:
+        - item_id: A24-I1
+          name: Sunglasses
+          price: 75
+      payment:
+        amount_paid: 75
+        amount_refunded: 0
+        refund_count: 0
+    - order_id: A25
+      customer:
+        customer_id: C25
+        name: Nadia Haddad
+        email: nadia.haddad@example.com
+        tier: standard
+      order_date: 2026-08-16
+      shipped: true
+      shipping_address: 340 Market St, San Jose, CA 95113
+      verification_code: "9975"
+      items:
+        - item_id: A25-I1
+          name: Throw pillow
+          price: 32
+      payment:
+        amount_paid: 32
+        amount_refunded: 0
+        refund_count: 0
+    - order_id: A26
+      customer:
+        customer_id: C26
+        name: Ivan Novak
+        email: ivan.novak@example.com
+        tier: standard
+      order_date: 2026-09-12
+      shipped: true
+      shipping_address: 9 River Rd, Albany, NY 12207
+      verification_code: "8894"
+      items:
+        - item_id: A26-I1
+          name: Office chair
+          price: 510
+      payment:
+        amount_paid: 510
+        amount_refunded: 0
+        refund_count: 0
+    - order_id: A27
+      customer:
+        customer_id: C27
+        name: Sofia Rossi
+        email: sofia.rossi@example.com
+        tier: vip
+      order_date: 2026-07-27
+      shipped: true
+      shipping_address: 12 Cedar Ave, Springfield, IL 62701
+      verification_code: "7813"
+      items:
+        - item_id: A27-I1
+          name: Cashmere scarf
+          price: 140
+      payment:
+        amount_paid: 140
+        amount_refunded: 0
+        refund_count: 0
+    - order_id: A28
+      customer:
+        customer_id: C28
+        name: Ethan Brooks
+        email: ethan.brooks@example.com
+        tier: standard
+      order_date: 2026-09-10
+      shipped: true
+      shipping_address: 340 Market St, San Jose, CA 95113
+      verification_code: "6732"
+      items:
+        - item_id: A28-I1
+          name: Board game
+          price: 45
+        - item_id: A28-I2
+          name: Jigsaw puzzle
+          price: 25
+      payment:
+        amount_paid: 70
+        amount_refunded: 25
+        refund_count: 1
+    - order_id: A29
+      customer:
+        customer_id: C29
+        name: Yuki Tanaka
+        email: yuki.tanaka@example.com
+        tier: standard
+      order_date: 2026-09-15
+      shipped: true
+      shipping_address: 9 River Rd, Albany, NY 12207
+      verification_code: "5651"
+      items:
+        - item_id: A29-I1
+          name: Porcelain bowl set
+          price: 55
+      payment:
+        amount_paid: 55
+        amount_refunded: 0
+        refund_count: 0
+    - order_id: A30
+      customer:
+        customer_id: C30
+        name: Omar Farouk
+        email: omar.farouk@example.com
+        tier: standard
+      order_date: 2026-09-13
+      shipped: true
+      shipping_address: 12 Cedar Ave, Springfield, IL 62701
+      verification_code: "4570"
+      items:
+        - item_id: A30-I1
+          name: Wall clock
+          price: 48
+      payment:
+        amount_paid: 48
+        amount_refunded: 0
+        refund_count: 0
+    - order_id: A31
+      customer:
+        customer_id: C31
+        name: Clara Weber
+        email: clara.weber@example.com
+        tier: vip
+      order_date: 2026-09-17
+      shipped: true
+      shipping_address: 340 Market St, San Jose, CA 95113
+      verification_code: "3489"
+      items:
+        - item_id: A31-I1
+          name: Stand mixer
+          price: 260
+        - item_id: A31-I2
+          name: Mixing bowl
+          price: 20
+      payment:
+        amount_paid: 280
+        amount_refunded: 0
+        refund_count: 0
+    - order_id: A32
+      customer:
+        customer_id: C32
+        name: Leo Dubois
+        email: leo.dubois@example.com
+        tier: standard
+      order_date: 2026-09-14
+      shipped: true
+      shipping_address: 9 River Rd, Albany, NY 12207
+      verification_code: "2408"
+      items:
+        - item_id: A32-I1
+          name: Bike helmet
+          price: 42
+      payment:
+        amount_paid: 42
+        amount_refunded: 0
+        refund_count: 0
+    - order_id: A33
+      customer:
+        customer_id: C33
+        name: Amara Eze
+        email: amara.eze@example.com
+        tier: standard
+      order_date: 2026-09-15
+      shipped: true
+      shipping_address: 12 Cedar Ave, Springfield, IL 62701
+      verification_code: "1327"
+      items:
+        - item_id: A33-I1
+          name: Hand-painted mug
+          price: 36
+      payment:
+        amount_paid: 36
+        amount_refunded: 0
+        refund_count: 0
+    - order_id: A34
+      customer:
+        customer_id: C34
+        name: Felix Braun
+        email: felix.braun@example.com
+        tier: standard
+      order_date: 2026-09-12
+      shipped: true
+      shipping_address: 340 Market St, San Jose, CA 95113
+      verification_code: "9246"
+      items:
+        - item_id: A34-I1
+          name: Linen tablecloth
+          price: 58
+      payment:
+        amount_paid: 58
+        amount_refunded: 0
+        refund_count: 0
+    - order_id: A35
+      customer:
+        customer_id: C35
+        name: Rosa Jimenez
+        email: rosa.jimenez@example.com
+        tier: standard
+      order_date: 2026-09-18
+      shipped: true
+      shipping_address: 9 River Rd, Albany, NY 12207
+      verification_code: "8165"
+      items:
+        - item_id: A35-I1
+          name: Weekend bag
+          price: 85
+      payment:
+        amount_paid: 85
+        amount_refunded: 0
+        refund_count: 0
+    - order_id: A36
+      customer:
+        customer_id: C36
+        name: Arjun Mehta
+        email: arjun.mehta@example.com
+        tier: standard
+      order_date: 2026-09-18
+      shipped: true
+      shipping_address: 12 Cedar Ave, Springfield, IL 62701
+      verification_code: "7084"
+      items:
+        - item_id: A36-I1
+          name: Weekend bag
+          price: 85
+      payment:
+        amount_paid: 85
+        amount_refunded: 0
+        refund_count: 0
+    - order_id: A37
+      customer:
+        customer_id: C37
+        name: Lena Vogel
+        email: lena.vogel@example.com
+        tier: standard
+      order_date: 2026-09-18
+      shipped: true
+      shipping_address: 340 Market St, San Jose, CA 95113
+      verification_code: "6003"
+      items:
+        - item_id: A37-I1
+          name: Weekend bag
+          price: 85
+      payment:
+        amount_paid: 85
+        amount_refunded: 0
+        refund_count: 0
+    - order_id: A38
+      customer:
+        customer_id: C38
+        name: Marcus Hall
+        email: marcus.hall@example.com
+        tier: standard
+      order_date: 2026-09-18
+      shipped: true
+      shipping_address: 9 River Rd, Albany, NY 12207
+      verification_code: "6604"
+      items:
+        - item_id: A38-I1
+          name: Desk organizer
+          price: 26
+      payment:
+        amount_paid: 26
+        amount_refunded: 0
+        refund_count: 0
+    - order_id: A39
+      customer:
+        customer_id: C39
+        name: Sara Lindqvist
+        email: sara.lindqvist@example.com
+        tier: standard
+      order_date: 2026-09-17
+      shipped: true
+      shipping_address: 12 Cedar Ave, Springfield, IL 62701
+      verification_code: "1187"
+      items:
+        - item_id: A39-I1
+          name: Air purifier
+          price: 180
+      payment:
+        amount_paid: 180
+        amount_refunded: 0
+        refund_count: 0
+    - order_id: A40
+      customer:
+        customer_id: C40
+        name: Hugo Laurent
+        email: hugo.laurent@example.com
+        tier: standard
+      order_date: 2026-09-19
+      shipped: false
+      shipping_address: 340 Market St, San Jose, CA 95113
+      verification_code: "2760"
+      items:
+        - item_id: A40-I1
+          name: Garden hose
+          price: 40
+      payment:
+        amount_paid: 40
+        amount_refunded: 0
+        refund_count: 0
+    - order_id: A41
+      customer:
+        customer_id: C41
+        name: Emma Novak
+        email: emma.novak@example.com
+        tier: standard
+      order_date: 2026-09-10
+      shipped: true
+      shipping_address: 9 River Rd, Albany, NY 12207
+      verification_code: "1679"
+      items:
+        - item_id: A41-I1
+          name: Throw blanket
+          price: 80
+      payment:
+        amount_paid: 80
+        amount_refunded: 0
+        refund_count: 0
+    - order_id: A42
+      customer:
+        customer_id: C42
+        name: Kenji Sato
+        email: kenji.sato@example.com
+        tier: standard
+      order_date: 2026-09-10
+      shipped: true
+      shipping_address: 12 Cedar Ave, Springfield, IL 62701
+      verification_code: "9598"
+      items:
+        - item_id: A42-I1
+          name: Plant pot
+          price: 24
+      payment:
+        amount_paid: 24
+        amount_refunded: 0
+        refund_count: 0
+    - order_id: A43
+      customer:
+        customer_id: C43
+        name: Julia Costa
+        email: julia.costa@example.com
+        tier: vip
+      order_date: 2026-09-10
+      shipped: true
+      shipping_address: 340 Market St, San Jose, CA 95113
+      verification_code: "8517"
+      items:
+        - item_id: A43-I1
+          name: Coffee grinder
+          price: 120
+      payment:
+        amount_paid: 120
+        amount_refunded: 0
+        refund_count: 0
+    - order_id: A44
+      customer:
+        customer_id: C44
+        name: Adam Price
+        email: adam.price@example.com
+        tier: standard
+      order_date: 2026-09-10
+      shipped: true
+      shipping_address: 9 River Rd, Albany, NY 12207
+      verification_code: "7436"
+      items:
+        - item_id: A44-I1
+          name: Tea sampler
+          price: 30
+        - item_id: A44-I2
+          name: Travel mug
+          price: 20
+      payment:
+        amount_paid: 50
+        amount_refunded: 0
+        refund_count: 0
+    - order_id: A45
+      customer:
+        customer_id: C45
+        name: Nina Holm
+        email: nina.holm@example.com
+        tier: standard
+      order_date: 2026-09-10
+      shipped: true
+      shipping_address: 12 Cedar Ave, Springfield, IL 62701
+      verification_code: "6355"
+      items:
+        - item_id: A45-I1
+          name: Card game
+          price: 50
+      payment:
+        amount_paid: 50
+        amount_refunded: 0
+        refund_count: 0
+  inventory:
+    A01-I1: 5
+    A02-I1: 5
+    A03-I1: 5
+    A04-I1: 5
+    A05-I1: 5
+    A05-I2: 5
+    A06-I1: 5
+    A07-I1: 5
+    A07-I2: 5
+    A07-I3: 5
+    A08-I1: 5
+    A09-I1: 5
+    A10-I1: 5
+    A11-I1: 5
+    A11-I2: 5
+    A12-I1: 5
+    A13-I1: 5
+    A14-I1: 5
+    A15-I1: 5
+    A16-I1: 5
+    A17-I1: 5
+    A18-I1: 5
+    A19-I1: 5
+    A20-I1: 5
+    A21-I1: 5
+    A22-I1: 5
+    A23-I1: 5
+    A24-I1: 5
+    A25-I1: 5
+    A26-I1: 5
+    A27-I1: 5
+    A28-I1: 5
+    A28-I2: 5
+    A29-I1: 5
+    A30-I1: 5
+    A31-I1: 5
+    A31-I2: 5
+    A32-I1: 5
+    A33-I1: 5
+    A34-I1: 5
+    A35-I1: 5
+    A36-I1: 5
+    A37-I1: 5
+    A38-I1: 5
+    A39-I1: 5
+    A40-I1: 5
+    A41-I1: 5
+    A42-I1: 5
+    A43-I1: 5
+    A44-I1: 5
+    A44-I2: 5
+    A45-I1: 5

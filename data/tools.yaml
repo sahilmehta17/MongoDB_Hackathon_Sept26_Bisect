@@ -1,0 +1,59 @@
+# The 7 store tools the agent can call (OpenAI function-calling format).
+# Descriptions are part of the agent's behavior: changing one changes every measurement.
+- name: get_order
+  description: "Look up an order: items and prices, order date, days since the order, shipped status, shipping address, and the customer (id, email, tier)."
+  parameters:
+    type: object
+    properties:
+      order_id: { type: string }
+    required: [order_id]
+- name: get_payment_status
+  description: "Payment status of an order: amount paid, amount already refunded, and number of refunds so far."
+  parameters:
+    type: object
+    properties:
+      order_id: { type: string }
+    required: [order_id]
+- name: issue_refund
+  # Without the get_payment_status hint, gpt-4.1-mini retries timed-out refunds even with zero
+  # lessons, so no version is GOOD on the timeout tasks.
+  description: "Refund money to the customer's original payment method. Not idempotent: every successful call moves money. A timeout does not mean the refund failed; use get_payment_status to see whether it went through."
+  parameters:
+    type: object
+    properties:
+      order_id: { type: string }
+      amount: { type: number, description: Amount in USD }
+    required: [order_id, amount]
+- name: ship_replacement
+  description: "Ship a replacement unit of one item from an order, at no charge."
+  parameters:
+    type: object
+    properties:
+      order_id: { type: string }
+      item_id: { type: string }
+    required: [order_id, item_id]
+- name: update_address
+  description: "Change the shipping address of an order. Optionally pass the verification code the customer provided."
+  parameters:
+    type: object
+    properties:
+      order_id: { type: string }
+      address: { type: string }
+      verification_code: { type: string }
+    required: [order_id, address]
+- name: issue_store_credit
+  description: "Add store credit (USD) to a customer's account."
+  parameters:
+    type: object
+    properties:
+      customer_id: { type: string }
+      amount: { type: number }
+    required: [customer_id, amount]
+- name: create_ticket
+  description: "Escalate to a human teammate with a short summary."
+  parameters:
+    type: object
+    properties:
+      summary: { type: string }
+      priority: { type: string, enum: [low, normal, high, urgent] }
+    required: [summary, priority]
