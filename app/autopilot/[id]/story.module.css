@@ -294,3 +294,15 @@ a.number:hover .numberValue {
     font-size: 18px;
   }
 }
+
+.play {
+  font: inherit;
+  font-size: 16px;
+  padding: 4px 12px;
+  margin-right: 8px;
+  border-radius: 8px;
+  border: 1px solid var(--border-strong);
+  background: var(--bg);
+  color: var(--fg);
+  cursor: pointer;
+}

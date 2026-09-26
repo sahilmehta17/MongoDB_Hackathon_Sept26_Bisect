@@ -43,6 +43,7 @@ export default function StoryPage({ id, openTry }: { id: string; openTry: boolea
   }, [load]);
 
   const story = useMemo(() => (view ? toStory(view) : null), [view]);
+  const play = usePlay(story?.rows.length ?? 0);
 
   if (error && !story) {
     return (
@@ -58,21 +59,85 @@ export default function StoryPage({ id, openTry }: { id: string; openTry: boolea
       </main>
     );
   }
-  const current = story.rows.length ? story.rows[story.rows.length - 1].step : "learn";
+  // In Play mode only the rows revealed so far count, including for the header.
+  const rows = play.shown === null ? story.rows : story.rows.slice(0, play.shown);
+  const shownStory: Story = { ...story, rows, header: headerFor(rows) };
+  const current = rows.length ? rows[rows.length - 1].step : "learn";
   return (
     <main className={styles.page}>
-      <Header story={story} current={current} openTry={openTry} />
+      <Header story={shownStory} current={current} openTry={openTry} />
       <hr className={styles.divider} />
       {story.start && <p className={styles.start}>{story.start}</p>}
       <ol className={styles.rows}>
-        {story.rows.map((row) => (
+        {rows.map((row) => (
           <Row key={row.key} row={row} sessionId={id} onDecided={load} />
         ))}
       </ol>
       <hr className={styles.divider} />
-      <Footer story={story} id={id} />
+      <Footer story={story} id={id} play={play} />
     </main>
   );
+}
+
+// The header numbers for the rows on screen: the first catch appears with the Bisect row, the
+// repeat catch with the immune block, the memory count with each "remembered" row.
+function headerFor(rows: StoryRow[]): Story["header"] {
+  const bisect = rows.find((r) => r.kind === "bisect" && r.numbers);
+  const block = rows.find((r) => r.kind === "blocked_memory" && r.numbers);
+  const href = bisect?.links.find((l) => l.href.startsWith("/investigations/"))?.href ?? "/immune";
+  return {
+    firstCatch: bisect?.numbers ? { ...bisect.numbers, href } : null,
+    repeatCatch: bisect && block?.numbers ? block.numbers : null,
+    remembered: rows.filter((r) => r.kind === "remembered").length,
+  };
+}
+
+// Play mode (UI spec §10): reveal one row every 3 s. Space plays or pauses, → next, ← previous,
+// R resets to the start. null means every row is shown (not playing).
+type Play = { shown: number | null; playing: boolean; toggle: () => void };
+function usePlay(total: number): Play {
+  const [shown, setShown] = useState<number | null>(null);
+  const [playing, setPlaying] = useState(false);
+  useEffect(() => {
+    if (!playing) return;
+    const t = setInterval(() => {
+      setShown((n) => {
+        const next = (n ?? 0) + 1;
+        if (next >= total) setPlaying(false);
+        return Math.min(next, total);
+      });
+    }, 3000);
+    return () => clearInterval(t);
+  }, [playing, total]);
+  const toggle = useCallback(() => {
+    if (playing) return setPlaying(false);
+    setShown((n) => (n === null || n >= total ? 0 : n));
+    setPlaying(true);
+  }, [playing, total]);
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      const el = e.target as HTMLElement | null;
+      if (el && (el.isContentEditable || ["INPUT", "TEXTAREA", "SELECT", "BUTTON", "A"].includes(el.tagName)) && e.key === " ") return;
+      if (el && ["INPUT", "TEXTAREA", "SELECT"].includes(el.tagName)) return;
+      if (document.querySelector("dialog[open]")) return;
+      if (e.key === " ") {
+        e.preventDefault();
+        toggle();
+      } else if (e.key === "ArrowRight") {
+        setPlaying(false);
+        setShown((n) => Math.min((n ?? total) >= total ? total : (n ?? 0) + 1, total));
+      } else if (e.key === "ArrowLeft") {
+        setPlaying(false);
+        setShown((n) => Math.max((n ?? total) - 1, 0));
+      } else if (e.key === "r" || e.key === "R") {
+        setPlaying(false);
+        setShown(0);
+      }
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [toggle, total]);
+  return { shown, playing, toggle };
 }
 
 function Header({ story, current, openTry }: { story: Story; current: Story["rows"][number]["step"]; openTry: boolean }) {
@@ -214,10 +279,13 @@ function Decision({ sessionId, onDecided }: { sessionId: string; onDecided: () =
   );
 }
 
-function Footer({ story, id }: { story: Story; id: string }) {
+function Footer({ story, id, play }: { story: Story; id: string; play: Play }) {
   return (
     <footer className={styles.footer}>
       <p>
+        <button type="button" className={styles.play} onClick={play.toggle} aria-pressed={play.playing}>
+          {play.playing ? "❚❚ Pause" : "▶ Play"}
+        </button>{" "}
         {story.status === "finished"
           ? `Finished in ${formatDuration(story.footer.seconds)}.`
           : story.status === "running"
