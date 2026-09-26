@@ -9,6 +9,11 @@ import { autopilot } from "@/workflows/autopilot";
 
 export const dynamic = "force-dynamic";
 
+// The demo configuration: the agent starts with the hand-written lessons U1-U5 (labelled seeded),
+// then handles all 18 training requests plus the labelled demo branch.
+const DEMO_SEED = ["U1", "U2", "U3", "U4", "U5"];
+const DEMO_TRAINING = 18;
+
 // Start the demo autopilot session, or return the one already running (never two at once).
 export async function POST() {
   const { sessions } = await col();
@@ -24,10 +29,16 @@ export async function POST() {
     monitoring: sets.monitoring,
     harmful: seed.harmful,
     rewordings: calibration?.rewordings ?? {},
+    trainingCount: DEMO_TRAINING,
   });
-  const sessionId = await createSession({ stream: plan.stream, sets });
+  const startWith = seed.useful.filter((u) => DEMO_SEED.includes(u.id)).map((u) => ({ id: u.id, text: u.text }));
+  const sessionId = await createSession({ stream: plan.stream, sets, seed: startWith });
   const { addEvent } = await import("@/lib/autopilot/steps");
-  await addEvent(sessionId, { key: "plan", type: "session_started", msg: `demo branch: ${plan.notes.join(" · ")}` });
+  await addEvent(sessionId, {
+    key: "plan",
+    type: "session_started",
+    msg: `the agent starts with ${startWith.length} hand-written lessons (${startWith.map((u) => u.id).join(", ")}, labelled seeded) and handles ${DEMO_TRAINING} training requests · demo branch: ${plan.notes.join(" · ")}`,
+  });
   const run = await start(autopilot, [{ sessionId }]);
   await sessions.updateOne({ sessionId }, { $set: { workflowRunId: run.runId } });
   return NextResponse.json({ sessionId, workflowRunId: run.runId, plan: plan.notes });

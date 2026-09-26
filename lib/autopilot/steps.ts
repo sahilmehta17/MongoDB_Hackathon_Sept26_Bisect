@@ -65,11 +65,29 @@ async function targetFor(taskId: string, runIds: string[]): Promise<string> {
 
 // ---------- session ----------
 
-export async function createSession(o: { stream: StreamItem[]; sets: AutopilotSession["sets"] }): Promise<string> {
+// A session's agent starts empty, or with some hand-written lessons (origin "seeded"), each added
+// as its own version in the session's history so the starting knowledge is visible.
+export async function createSession(o: {
+  stream: StreamItem[];
+  sets: AutopilotSession["sets"];
+  seed?: { id: string; text: string }[];
+}): Promise<string> {
   const { sessions } = await col();
   const sessionId = await nextId("ap");
   const history = await createHistory({ note: `autopilot ${sessionId}` });
-  const root = history.versionIds[0];
+  let root = history.versionIds[0];
+  for (const u of o.seed ?? []) {
+    const lesson = await addLesson(u.text, { origin: "seeded", seedId: u.id });
+    const v = await createVersion({
+      parentVersionId: root,
+      change: { op: "add", lessonId: lesson.lessonId },
+      label: "seeded",
+      createdBy: "seed",
+      note: `${sessionId} starts with ${u.id}`,
+    });
+    await appendVersion(history.historyId, v.versionId);
+    root = v.versionId; // the agent the session starts from
+  }
   await openBudget(sessionId, { maxRuns: SESSION_MAX_RUNS, maxModelCalls: SESSION_MAX_MODEL_CALLS });
   const s: AutopilotSession = {
     sessionId,
