@@ -12,7 +12,7 @@ import styles from "./story.module.css";
 
 // The story of one agent (UI spec §4): header, loop strip, headline numbers, one row per rule and
 // moment, footer. Everything is computed from GET /api/autopilot/[id] by lib/story.ts.
-export default function StoryPage({ id, openTry }: { id: string; openTry: boolean }) {
+export default function StoryPage({ id, openTry, autoPlay = false }: { id: string; openTry: boolean; autoPlay?: boolean }) {
   const [view, setView] = useState<AutopilotView | null>(null);
   const [error, setError] = useState<string | null>(null);
 
@@ -45,7 +45,7 @@ export default function StoryPage({ id, openTry }: { id: string; openTry: boolea
   }, [load]);
 
   const story = useMemo(() => (view ? toStory(view) : null), [view]);
-  const play = usePlay(story?.rows.length ?? 0);
+  const play = usePlay(story?.rows.length ?? 0, autoPlay);
   // "Try to sneak a bad rule past it" (UI spec §6): a dialog over this page, open on arrival with ?try=1.
   const [tryOpen, setTryOpen] = useState(openTry);
   const [attempts, setAttempts] = useState(0);
@@ -110,13 +110,14 @@ function headerFor(rows: StoryRow[]): Story["header"] {
 }
 
 // Play mode (UI spec §10): reveal one row every 3 s. Space plays or pauses, → next, ← previous,
-// R resets to the start. null means every row is shown (not playing).
+// R resets to the start. null means every row is shown (not playing). "Watch the agent learn"
+// arrives with ?play=1 and starts playing as soon as the rows have loaded.
 type Play = { shown: number | null; playing: boolean; toggle: () => void; total: number };
-function usePlay(total: number): Play {
-  const [shown, setShown] = useState<number | null>(null);
-  const [playing, setPlaying] = useState(false);
+function usePlay(total: number, autoPlay: boolean): Play {
+  const [shown, setShown] = useState<number | null>(autoPlay ? 0 : null);
+  const [playing, setPlaying] = useState(autoPlay);
   useEffect(() => {
-    if (!playing) return;
+    if (!playing || total === 0) return;
     const t = setInterval(() => {
       setShown((n) => {
         const next = (n ?? 0) + 1;

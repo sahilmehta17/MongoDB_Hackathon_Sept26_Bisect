@@ -89,7 +89,7 @@ export default function Home() {
           Self-improving agents learn bad habits. Bisect finds the exact bad rule, removes only it, and remembers it.
         </h1>
         <div className={styles.actions}>
-          <Link className={styles.primary} href="/story">
+          <Link className={styles.primary} href="/story?play=1">
             Watch the agent learn
           </Link>
           <Link className={styles.secondary} href="/story?try=1">
