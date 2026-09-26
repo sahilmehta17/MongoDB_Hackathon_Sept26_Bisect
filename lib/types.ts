@@ -233,3 +233,77 @@ export interface Antibody {
   recognitions: number;
   blocks: number;
 }
+
+// ---------- investigations (spec section 5) ----------
+
+// One classified batch of fresh trials: a task on a version (or a configuration of it).
+export interface Probe {
+  key: string; // stable within the investigation, e.g. "search-v5", "verify-current_minus_suspect"
+  phase: "endpoint" | "search" | "scan" | "verify" | "recheck" | "pinned";
+  config?: "parent" | "introducing" | "current" | "current_minus_suspect" | "before" | "after";
+  versionId: string;
+  versionIndex: number;
+  taskId: string;
+  contextMode: ContextMode;
+  label: Label;
+  counts: Counts;
+  trials: number;
+  runIds: string[];
+}
+
+// One re-check task: the current version (before) vs the repair (after), normal retrieval.
+export interface RecheckRow {
+  taskId: string;
+  reason: string;
+  before: Probe;
+  after: Probe;
+}
+
+export type Verdict = "running" | "verified" | "inconclusive" | "baseline_not_reproduced" | "budget_exceeded" | "error";
+
+export interface Investigation {
+  investigationId: string; // "inv1", ...
+  historyId: string;
+  trigger: "manual" | "monitor" | "autopilot";
+  failureTaskId: string;
+  targetAssertion: string;
+  goodVersionId: string;
+  badVersionId: string;
+  line: { versionId: string; index: number; lessonId: string | null }[]; // the searched segment, good..bad
+  probes: Probe[]; // endpoint, search and scan probes
+  suspect: { lessonId: string; versionId: string; text: string; origin: Origin } | null;
+  verification: Probe[]; // the four configurations
+  repairVersionId: string | null;
+  recheckTaskIds?: string[]; // frozen once built
+  recheckReasons?: Record<string, string>;
+  recheck: RecheckRow[];
+  pinned: RecheckRow[]; // pinned tests from antibodies, screened on the repair
+  acceptance: "accepted" | "awaiting_decision" | null;
+  broken: string[]; // previously GOOD tasks that are no longer GOOD on the repair
+  antibodyId: string | null;
+  verdict: Verdict;
+  summary?: string;
+  workflowRunId?: string;
+  startedAt: Date;
+  finishedAt?: Date;
+  log: { at: Date; msg: string }[];
+}
+
+// Cost, always derived from the saved run records (so a retried step can never double-count).
+export interface Cost {
+  runs: number;
+  modelCalls: number;
+  tokens: number;
+  errors: number;
+}
+
+// What GET /api/investigations/[id] returns: the investigation plus what the page needs to explain it.
+export interface InvestigationView {
+  investigation: Investigation;
+  cost: Cost;
+  elapsedMs: number;
+  lessons: Record<string, { text: string; origin: Origin; seedId?: string }>; // every lesson on the searched line
+  tasks: Record<string, { request: string; workflow: Workflow }>; // failing task + re-check tasks
+  houseRules: AgentConfig["houseRules"];
+  groundTruth: History["groundTruth"] | null; // the planted answer, when the history was built on purpose
+}
