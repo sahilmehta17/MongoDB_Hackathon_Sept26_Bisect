@@ -121,6 +121,9 @@ const PHASE_TEXT: Record<Probe["phase"], string> = {
   verify: "verification",
   recheck: "re-check",
   pinned: "pinned test",
+  replay: "immune replay",
+  gate: "gate check",
+  monitor: "monitoring check",
 };
 
 const LABEL_TONE: Record<Label, Tone> = { GOOD: "good", BAD: "bad", INCONCLUSIVE: "warn" };
