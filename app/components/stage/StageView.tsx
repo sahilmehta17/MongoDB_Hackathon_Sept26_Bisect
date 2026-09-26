@@ -150,8 +150,8 @@ export default function StageView({ id }: { id: string }) {
     <main className={styles.stage}>
       <div className={styles.bar}>
         <p className={styles.meta}>
-          Recorded session <span className={styles.mono}>{stage.sessionId}</span> · {recorded(stage.recordedAt)} · the harmful rules were planted by
-          us · <Link href="/story">Full log</Link>
+          <span className={styles.brand}>Bisect</span>
+          <span>Recorded session · harmful rules planted by us</span>
         </p>
         <div className={styles.controls}>
           <button type="button" onClick={() => jump(k - 1)} disabled={k === 0} aria-label="Previous step">
@@ -214,6 +214,10 @@ export default function StageView({ id }: { id: string }) {
         )}
       </section>
       <EvidencePanel open={evidence && step.evidence.length > 0} onClose={closeEvidence} title={step.headline} sections={step.evidence} links={step.links} />
+      <footer className={styles.footer}>
+        Behind the demo: <Link href={`/autopilot/${stage.sessionId}`}>session log</Link> · <Link href="/autopilot">all runs</Link> ·{" "}
+        <Link href="/immune">immune memory</Link>
+      </footer>
     </main>
   );
 }
@@ -235,9 +239,4 @@ function Visual({ step, baseVersionId, tried }: { step: StageStep; baseVersionId
     );
   }
   return <RuleCards cards={step.cards} tone={step.tone} />;
-}
-
-function recorded(at: string): string {
-  const d = new Date(at);
-  return Number.isNaN(d.getTime()) ? "" : d.toLocaleString("en-US", { month: "short", day: "numeric", hour: "numeric", minute: "2-digit" });
 }

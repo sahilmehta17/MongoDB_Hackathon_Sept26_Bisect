@@ -502,6 +502,10 @@ const cap = (s: string) => s.charAt(0).toUpperCase() + s.slice(1);
 
 // ---------- the demo stage: one recorded session, one step at a time (the home page) ----------
 
+// The recorded session the home page tells: ap2 ran the whole loop (gate, monitoring, Bisect,
+// memory). Pinned, so a newer session can't replace the demo; /?session=apN shows another one.
+export const DEMO_SESSION_ID = "ap2";
+
 export type StagePart = "autopilot" | "bisect" | "memory";
 export const PARTS: { id: StagePart; label: string }[] = [
   { id: "autopilot", label: "Autopilot" },

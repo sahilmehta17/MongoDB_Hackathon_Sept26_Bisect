@@ -27,12 +27,30 @@
 
 .meta {
   margin: 0;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 4px 14px;
   font-size: 15px;
   color: var(--muted);
 }
 
-.meta a {
-  color: var(--info);
+.brand {
+  font-size: 20px;
+  font-weight: 800;
+  color: var(--fg);
+}
+
+.footer {
+  margin-top: 24px;
+  padding-top: 12px;
+  border-top: 1px solid var(--border);
+  font-size: 14px;
+  color: var(--muted);
+}
+
+.footer a {
+  color: var(--muted);
 }
 
 .controls {
