@@ -228,7 +228,7 @@ export interface Antibody {
   targetAssertion: string;
   evidence: { withFails: number; withoutFails: number; trials: number };
   repair: "removed" | "awaiting_decision";
-  label: "natural" | "planted" | "injected";
+  label: Origin; // origin of the convicted lesson, shown as-is
   createdAt: Date;
   recognitions: number;
   blocks: number;
