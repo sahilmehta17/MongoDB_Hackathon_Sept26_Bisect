@@ -67,3 +67,13 @@ export function dataVersion(): string {
   for (const f of files) h.update(f).update(read(f));
   return "data:" + h.digest("hex").slice(0, 12);
 }
+
+// Optional data files (the teammate's task sets and calibration set): parsed as-is, or null if absent.
+export function yamlOptional(file: string): unknown | null {
+  try {
+    return parse(read(file));
+  } catch (e) {
+    if ((e as NodeJS.ErrnoException).code === "ENOENT") return null;
+    throw e;
+  }
+}

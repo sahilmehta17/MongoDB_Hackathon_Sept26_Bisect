@@ -1,6 +1,6 @@
 // Every Atlas collection Bisect uses, the atomic id counter, and the indexes (btree + Vector Search).
 import { MongoServerError, type Collection } from "mongodb";
-import type { AgentConfig, Antibody, Budget, History, Investigation, Lesson, Recognition, RunRecord, Snapshot, Task, Version } from "@/lib/types";
+import type { AgentConfig, Antibody, AutopilotSession, Budget, History, Investigation, Lesson, Recognition, RunRecord, Snapshot, Task, Version } from "@/lib/types";
 import { getDb } from "./db";
 import { EMBED_DIMS } from "./embed";
 
@@ -27,6 +27,7 @@ export async function col() {
     budgets: db.collection<Budget>("budgets"),
     antibodies: db.collection<Antibody>("antibodies"),
     recognitions: db.collection<Recognition>("recognitions"),
+    sessions: db.collection<AutopilotSession>("autopilot_sessions"),
     counters: db.collection<Counter>("counters"),
     queryEmbeddings: db.collection<QueryEmbedding>("query_embeddings"),
   };
@@ -104,6 +105,7 @@ export async function ensureIndexes(): Promise<string[]> {
     c.antibodies.createIndex({ investigationId: 1 }, { unique: true }),
     c.recognitions.createIndex({ recognitionId: 1 }, { unique: true }),
     c.recognitions.createIndex({ createdAt: -1 }),
+    c.sessions.createIndex({ sessionId: 1 }, { unique: true }),
   ]);
   report.push("btree: 11 indexes ok");
 

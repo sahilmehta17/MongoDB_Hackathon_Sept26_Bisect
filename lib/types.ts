@@ -344,3 +344,98 @@ export interface ImmuneView {
   baseVersions: { versionId: string; label: string }[]; // choices for "Propose a rule", best first
   menu: { text: string; kind: "reworded bad rule" | "useful rule" }[]; // prewritten rules for "Propose a rule"
 }
+
+// ---------- autopilot (spec section 7) ----------
+
+export type AutopilotEventType =
+  | "session_started"
+  | "training_run"
+  | "no_proposal"
+  | "proposed"
+  | "immune_blocked"
+  | "immune_passed"
+  | "gate_passed"
+  | "gate_rejected"
+  | "activated"
+  | "monitor_ok"
+  | "false_alarm"
+  | "regression_confirmed"
+  | "investigation_started"
+  | "antibody_created"
+  | "repair_activated"
+  | "awaiting_decision"
+  | "decision"
+  | "budget_stop"
+  | "insufficient_evidence"
+  | "session_done";
+
+// A compact probe for the timeline: what ran, on which version, and what it showed.
+export interface EvidenceItem {
+  taskId: string;
+  versionId: string;
+  kind: "trigger" | "gate" | "pinned" | "monitor" | "baseline" | "replay";
+  status?: "ok" | "fail" | "insufficient_evidence"; // screens (2 trials)
+  label?: Label; // confirms (5 trials)
+  counts: Counts;
+  trials: number;
+  runIds: string[];
+}
+
+export interface AutopilotEvent {
+  key: string; // unique within the session, so a retried step never logs an event twice
+  seq: number;
+  at: Date;
+  type: AutopilotEventType;
+  msg: string;
+  label?: Origin;
+  text?: string; // the proposed rule
+  taskId?: string;
+  versionId?: string;
+  lessonId?: string;
+  recognitionId?: string;
+  investigationId?: string;
+  antibodyId?: string;
+  evidence?: EvidenceItem[];
+  runs?: number;
+  ms?: number;
+}
+
+// The request stream: training requests plus the fixed, labelled demo branch.
+export type StreamItem =
+  | { kind: "training"; taskId: string }
+  | { kind: "planted"; seedId: string; text: string; note: string } // submitted through the gate
+  | { kind: "injected"; seedId: string; text: string; note: string } // bypasses the gate (labelled so)
+  | { kind: "reworded"; seedId: string; text: string; note: string } // a rewording of a convicted rule, through the gate
+  | { kind: "monitor"; note: string }; // a scheduled monitoring check
+
+export interface AutopilotSession {
+  sessionId: string; // "ap1", ...
+  status: "running" | "awaiting_decision" | "done" | "stopped" | "error";
+  historyId: string; // the line of activated versions
+  startVersionId: string;
+  activeVersionId: string;
+  candidateVersionId: string | null; // at most one
+  stream: StreamItem[];
+  position: number; // next stream item
+  sets: { gate: string[]; monitoring: string[] };
+  status0: Record<string, "GOOD" | "not_good">; // gate/monitoring task status on the active version ("previously GOOD")
+  activations: number;
+  activationsAtLastMonitor: number;
+  lastMonitorOkVersionId: string;
+  pendingRepair: { investigationId: string; repairVersionId: string } | null; // waiting for Approve / Reject
+  decision: "approve" | "reject" | null;
+  events: AutopilotEvent[];
+  workflowRunId?: string;
+  createdAt: Date;
+  finishedAt?: Date;
+}
+
+// What GET /api/autopilot/[id] returns.
+export interface AutopilotView {
+  session: AutopilotSession;
+  cost: Cost; // the session's own runs (screens, confirms, training runs)
+  immuneCost: Cost; // recognition replays started by this session
+  lessons: Record<string, { text: string; origin: Origin }>; // lessons on the session's versions
+  activeLessonIds: string[];
+  elapsedMs: number;
+}

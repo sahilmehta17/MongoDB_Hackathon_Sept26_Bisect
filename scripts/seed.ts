@@ -3,7 +3,7 @@
 // agent config. Idempotent: upserts by id, re-embeds only tasks whose request text changed, and
 // removes tasks/snapshots no longer in data/. Never creates lessons or versions.
 import { mongoHosts } from "@/lib/env";
-import { dataVersion, yamlAgentConfig, yamlSnapshots, yamlTasks } from "@/lib/data/yaml";
+import { dataVersion, yamlAgentConfig, yamlLessonSeed, yamlOptional, yamlSnapshots, yamlTasks } from "@/lib/data/yaml";
 import { col, ensureIndexes, sleep, TASK_INDEX, type TaskDoc } from "@/lib/memory/collections";
 import { getClient, getDb } from "@/lib/memory/db";
 import { embed, EMBED_DIMS } from "@/lib/memory/embed";
@@ -58,6 +58,21 @@ async function main() {
     { upsert: true },
   );
 
+  // The lesson seed, and the teammate's task sets and calibration rewordings when present, as
+  // stored documents: the app reads them from Atlas because data/ isn't bundled on Vercel.
+  const extras = (await getDb()).collection<{ _id: string; data: unknown; updatedAt: Date }>("config");
+  await extras.replaceOne({ _id: "lesson_seed" }, { data: yamlLessonSeed(), updatedAt: new Date() }, { upsert: true });
+  const optional: string[] = [];
+  for (const [id, file] of [["autopilot_sets", "autopilot_sets.yaml"], ["immune_calibration", "immune_calibration.yaml"]] as const) {
+    const raw = yamlOptional(file);
+    if (raw === null) {
+      optional.push(`${file}: not present`);
+      continue;
+    }
+    await extras.replaceOne({ _id: id }, { data: raw, updatedAt: new Date() }, { upsert: true });
+    optional.push(`${file}: loaded`);
+  }
+
   // Wait until Vector Search sees every task (the index catches up asynchronously).
   const searchable = await waitForTasksSearchable(docs[0].embedding!, docs.length);
 
@@ -76,7 +91,8 @@ async function main() {
   console.log("  by split/workflow:", bySplit);
   console.log(`  ${TASK_INDEX} returns ${searchable}/${docs.length}`);
   console.log(`snapshots: ${nSnaps} (${snaps.map((s) => `${s.snapshotId}: ${s.orders.length} orders`).join(", ")}; ${staleSnaps.deletedCount} stale removed)`);
-  console.log(`config: ${nConfig} doc (agent)`);
+  console.log(`config: ${nConfig} docs (agent, lesson_seed, ...)`);
+  for (const line of optional) console.log("  •", line);
   console.log(`untouched: lessons ${nLessons}, versions ${nVersions}, histories ${nHistories}, runs ${nRuns}`);
   console.log(`data version: ${version}`);
 }
