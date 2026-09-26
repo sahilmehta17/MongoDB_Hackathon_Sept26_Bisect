@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { gitCommit } from "@/lib/env";
+import { gitCommit, mongoHosts } from "@/lib/env";
 import { llm, MODEL } from "@/lib/llm";
 import { getDb } from "@/lib/memory/db";
 import { EMBED_DIMS, embedOne, VOYAGE_MODEL } from "@/lib/memory/embed";
@@ -18,13 +18,19 @@ async function timed(fn: () => Promise<Record<string, unknown>>): Promise<Check>
   }
 }
 
+// Which cluster the connection string points at (host only, never the credentials).
+function clusterHost(): string | null {
+  const uri = process.env.MONGODB_URI;
+  return uri ? mongoHosts(uri).join(",") : null;
+}
+
 // Checks Atlas, OpenRouter and Voyage with one real call each, and reports what is running.
 export async function GET() {
   const [atlas, openrouter, voyage] = await Promise.all([
     timed(async () => {
       const db = await getDb();
       await db.command({ ping: 1 });
-      return { database: db.databaseName };
+      return { cluster: clusterHost(), database: db.databaseName };
     }),
     timed(async () => {
       const r = await llm().chat.completions.create({
@@ -43,7 +49,7 @@ export async function GET() {
   ]);
   const ok = atlas.ok && openrouter.ok && voyage.ok;
   return NextResponse.json(
-    { ok, commit: gitCommit(), database: process.env.MONGODB_DB ?? null, atlas, openrouter, voyage },
+    { ok, commit: gitCommit(), cluster: clusterHost(), database: process.env.MONGODB_DB ?? null, atlas, openrouter, voyage },
     { status: ok ? 200 : 503 },
   );
 }
