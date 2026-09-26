@@ -8,6 +8,7 @@ import Link from "next/link";
 import { useCallback, useEffect, useState } from "react";
 import type { Counts, Investigation, InvestigationView, Label, Origin, Probe, RecheckRow, Verdict } from "@/lib/types";
 import { LIMITS } from "@/lib/types";
+import { harmOf } from "@/lib/story";
 import styles from "./report.module.css";
 
 const POLL_MS = 2000;
@@ -268,6 +269,15 @@ function Report({ view, elapsedMs, stale }: { view: InvestigationView; elapsedMs
   const rule = view.houseRules[inv.targetAssertion];
   const task = view.tasks[inv.failureTaskId];
   const verdict = VERDICT[inv.verdict] ?? { text: inv.verdict, tone: "neutral" as Tone };
+  // Lead with the outcome ("Double refunds fixed by removing one learned rule"); the id moves to the eyebrow.
+  const harm = harmOf(inv.targetAssertion);
+  const Harm = harm ? harm.charAt(0).toUpperCase() + harm.slice(1) : null;
+  const title =
+    inv.verdict === "verified" && inv.acceptance === "accepted" && Harm
+      ? `${Harm} fixed by removing one learned rule`
+      : inv.verdict === "verified" && Harm
+        ? `${Harm}: the rule responsible is found`
+        : `Investigation ${inv.investigationId}`;
 
   return (
     <main className={`report ${styles.page}`}>
@@ -279,10 +289,10 @@ function Report({ view, elapsedMs, stale }: { view: InvestigationView; elapsedMs
 
       <header className="report-head">
         <p className="eyebrow">
-          <Link href="/">Bisect</Link> · investigation of a self-improving agent
+          <Link href="/">Bisect</Link> · investigation <code>{inv.investigationId}</code> of a self-improving agent
         </p>
         <div className="title-row">
-          <h1>Investigation {inv.investigationId}</h1>
+          <h1>{title}</h1>
           <span className={`badge badge-${verdict.tone}`}>
             {running ? <span className="pulse" aria-hidden="true" /> : null}
             {verdict.text}

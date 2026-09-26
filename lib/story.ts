@@ -1,6 +1,6 @@
 // Turns one autopilot session into the story shown on /autopilot/[id]: one row per rule and per
 // notable moment, in the order they happened (UI spec §5). Pure: reads the view, never the database.
-import type { AutopilotEvent, AutopilotView, EvidenceItem, InvestigationView, Recognition } from "@/lib/types";
+import { LIMITS, type AutopilotEvent, type AutopilotView, type EvidenceItem, type InvestigationView, type Origin, type Recognition } from "@/lib/types";
 
 export type StoryStep = "learn" | "test" | "watch" | "diagnose" | "remember";
 export const STEPS: { id: StoryStep; label: string }[] = [
@@ -118,6 +118,9 @@ const HARM: Record<string, string> = {
   refund_issued: "missed refunds",
   correct_amount: "wrong refund amounts",
 };
+
+// The harm as a noun phrase, e.g. "double refunds" (null for checks without one).
+export const harmOf = (assertion: string): string | null => HARM[assertion] ?? null;
 
 // Shorten at a word boundary so a rule fits on one projector line; the full text is in the expand.
 export function shorten(text: string, max = 80): string {
@@ -496,3 +499,425 @@ function bisectRow(started: AutopilotEvent, inv: InvestigationView | undefined):
 }
 
 const cap = (s: string) => s.charAt(0).toUpperCase() + s.slice(1);
+
+// ---------- the demo stage: one recorded session, one step at a time (the home page) ----------
+
+export type StagePart = "autopilot" | "bisect" | "memory";
+export const PARTS: { id: StagePart; label: string }[] = [
+  { id: "autopilot", label: "Autopilot" },
+  { id: "bisect", label: "Bisect" },
+  { id: "memory", label: "Immune memory" },
+];
+export type CardState = "live" | "dim" | "new" | "rejected" | "suspect" | "removed" | "shield" | "incoming" | "blocked" | "passed";
+export interface StageCard {
+  key: string; // stable across steps, so a card's change of state animates
+  text: string;
+  tag?: string; // e.g. "seed" or the lesson id
+  origin?: Origin;
+  state: CardState;
+  note?: string;
+}
+export interface StageDots {
+  label: string;
+  fail: number;
+  total: number;
+  note?: string;
+}
+export interface StageStep {
+  key: string;
+  part: StagePart;
+  headline: string;
+  sub?: string;
+  cards: StageCard[];
+  tone?: "normal" | "alarm";
+  compare?: { old: StageCard; new: StageCard; between: string }; // the remembered rule beside a new wording
+  dots?: StageDots[];
+  metric?: string;
+  links: StoryLink[];
+  live?: { shield: StageCard }; // the last step: a rule proposed on the page, checked live
+  evidence: EvidenceSection[]; // the technical detail behind the step, shown in a side panel
+}
+export interface EvidenceRow {
+  label: string;
+  value: string;
+  href?: string;
+}
+export interface EvidenceSection {
+  title: string;
+  rows: EvidenceRow[];
+}
+export interface Stage {
+  sessionId: string;
+  recordedAt: string;
+  steps: StageStep[];
+  baseVersionId: string;
+  tried: string[]; // rule texts already in this session (the live step offers other wordings)
+}
+// A saved run as GET /api/runs/[id] returns it (only what the stage reads).
+export interface StageRun {
+  toolCalls?: { tool?: string; args?: Record<string, unknown>; result?: unknown }[];
+  finalStateSummary?: Record<string, unknown>;
+}
+
+// The concrete harm in one failing run, e.g. "$80 back on a $40 order" (refund checks only).
+export function harmSentence(r?: StageRun | null): string | undefined {
+  const st = r?.finalStateSummary;
+  if (!st) return undefined;
+  const paid = Number(st.amount_paid);
+  const total = Number(st.refunded_total);
+  const count = Number(st.refund_count);
+  if (!(count >= 2 && paid > 0 && total > paid)) return undefined;
+  const refunds = (r?.toolCalls ?? []).filter((c) => c.tool === "issue_refund");
+  return refunds[0]?.result === "timeout"
+    ? `The first $${paid} refund timed out but had gone through, so the agent refunded again: $${total} back on a $${paid} order.`
+    : `The agent refunded ${count} times: $${total} back on a $${paid} order.`;
+}
+
+const runHref = (id?: string) => (id ? `/runs/${id}` : undefined);
+const show = (v: unknown) => (typeof v === "string" ? v : JSON.stringify(v)?.slice(0, 80) ?? "");
+const fmtCall = (c: NonNullable<StageRun["toolCalls"]>[number]) =>
+  `${c.tool ?? "?"}(${Object.entries(c.args ?? {})
+    .map(([k, v]) => `${k} ${show(v)}`)
+    .join(", ")}) → ${show(c.result)}`;
+const CONFIG_WORDS: Record<string, string> = {
+  parent: "before the rule",
+  introducing: "rule added",
+  current: "today, with it",
+  current_minus_suspect: "today, without it",
+};
+
+function rejectNote(gate: AutopilotEvent): string {
+  const d = deciding(gate.evidence);
+  if (!d) return "failed the tests";
+  if (d.kind === "trigger") return "didn't fix its own request";
+  return `broke ${brokeTitle(d.taskId)} (${d.counts.targetFail} of ${d.trials})`;
+}
+
+export function toStage(view: AutopilotView, extras: { threshold?: number | null; alarmRun?: StageRun | null } = {}): Stage {
+  const s = view.session;
+  const events = [...s.events].sort((a, b) => a.seq - b.seq);
+  const recs = new Map((view.recognitions ?? []).map((r) => [r.recognitionId, r]));
+  const invs = new Map((view.investigations ?? []).map((i) => [i.investigation.investigationId, i]));
+  const rules = view.houseRules ?? {};
+  const plan = events
+    .filter((e) => e.type === "session_started" && e.key === "plan")
+    .flatMap((e) => e.msg.split(" · ").map((x) => x.trim()).filter(Boolean));
+  const start = events.find((e) => e.type === "session_started" && e.key !== "plan");
+
+  // Each proposal with the event that decided it (gate, activation or memory).
+  type P = { proposed: AutopilotEvent; decided?: AutopilotEvent; lessonId?: string };
+  const proposals: P[] = [];
+  for (const e of events) {
+    if (e.type === "proposed") proposals.push({ proposed: e });
+    const p = proposals[proposals.length - 1];
+    if (!p || p.decided) continue;
+    if (e.lessonId && (e.type === "gate_passed" || e.type === "gate_rejected")) p.lessonId = e.lessonId;
+    if (e.type === "gate_rejected" || e.type === "activated" || e.type === "immune_blocked") p.decided = e;
+  }
+  const live = proposals.find((p) => p.decided?.type === "activated");
+  const rejected = proposals.filter((p) => p.decided?.type === "gate_rejected" && (!live || p.proposed.seq < live.proposed.seq));
+  const reg = live ? events.find((e) => e.type === "regression_confirmed" && e.seq > live.decided!.seq) : undefined;
+  const invStart = reg ? events.find((e) => e.type === "investigation_started" && e.seq > reg.seq) : undefined;
+  const inv = invStart?.investigationId ? invs.get(invStart.investigationId) : undefined;
+  const antibody = invStart ? events.find((e) => e.type === "antibody_created" && e.seq > invStart.seq) : undefined;
+  const blocked = proposals.find((p) => p.decided?.type === "immune_blocked" && (!antibody || p.proposed.seq > antibody.seq));
+
+  const seeds: StageCard[] = (view.startLessons ?? []).map((l, n) => ({ key: `seed-${n}`, text: l.text, tag: "seed", origin: l.origin, state: "live" }));
+  const as = (cards: StageCard[], state: CardState) => cards.map((c) => ({ ...c, state }));
+  const card = (p: P, state: CardState, note?: string): StageCard => ({
+    key: p.proposed.key,
+    text: p.proposed.text ?? "",
+    tag: p.lessonId,
+    origin: p.proposed.label,
+    state,
+    note,
+  });
+  const i = inv?.investigation;
+  const target = i?.targetAssertion ?? "";
+  const harm = HARM[target] ?? "failures";
+  // The rule Bisect convicted: the live card itself when it is the suspect (the usual case).
+  const suspect: StageCard | null = !live
+    ? null
+    : i?.suspect && i.suspect.lessonId !== live.lessonId
+      ? { key: `suspect-${i.suspect.lessonId}`, text: i.suspect.text, tag: i.suspect.lessonId, origin: i.suspect.origin, state: "suspect" }
+      : card(live, "suspect");
+  const rest = live && suspect && suspect.key !== live.proposed.key ? [...seeds, card(live, "live")] : seeds;
+  const steps: StageStep[] = [];
+
+  const ev = start?.evidence ?? [];
+  const ok = ev.filter((x) => x.status === "ok").length;
+  steps.push({
+    key: "start",
+    part: "autopilot",
+    headline: `The agent starts with ${seeds.length} hand-written rule${seeds.length === 1 ? "" : "s"}.`,
+    sub: "It answers support requests and proposes new rules as it goes. A new rule goes live only if it passes the tests.",
+    cards: seeds,
+    metric: ev.length ? `${ok === ev.length ? "All" : `${ok} of`} ${ev.length} test tasks pass` : undefined,
+    links: [],
+    evidence: [
+      { title: "Rules it started with", rows: (view.startLessons ?? []).map((l) => ({ label: l.seedId ?? "seed", value: l.text })) },
+      { title: "Tests every new rule must pass", rows: s.sets.gate.map((t) => ({ label: t, value: taskTitle(t) })) },
+      { title: "Monitoring after a rule goes live", rows: s.sets.monitoring.map((t) => ({ label: t, value: taskTitle(t) })) },
+    ],
+  });
+
+  if (rejected.length) {
+    steps.push({
+      key: "rejected",
+      part: "autopilot",
+      headline: `The tests reject ${rejected.length === 1 ? "a new rule" : `${rejected.length} new rules`}.`,
+      sub: "Each new rule is tried on the test tasks with fresh runs before it can go live.",
+      cards: [...as(seeds, "dim"), ...rejected.map((p) => card(p, "rejected", rejectNote(p.decided!)))],
+      links: run(deciding(rejected[0].decided!.evidence)?.runIds[0]),
+      evidence: rejected.map((p) => {
+        const d = deciding(p.decided!.evidence);
+        return {
+          title: `${p.proposed.label ?? ""} rule ${p.lessonId ?? ""}`.trim(),
+          rows: [
+            { label: "rule", value: p.proposed.text ?? "" },
+            ...(d
+              ? [
+                  { label: d.kind === "trigger" ? "own request" : "broke", value: `${taskTitle(d.taskId)} (${d.taskId})` },
+                  {
+                    label: "fresh runs",
+                    value: d.kind === "trigger" ? `${d.trials - d.counts.pass} of ${d.trials} still failed` : `${d.counts.targetFail} of ${d.trials} failed the check`,
+                    href: runHref(d.runIds[0]),
+                  },
+                ]
+              : []),
+          ],
+        };
+      }),
+    });
+  }
+
+  if (live) {
+    const injected = live.proposed.label === "injected";
+    const seedId = live.proposed.msg.match(/\b(H\d+)\b/)?.[1];
+    const note = seedId ? plan.find((x) => x.includes(`${seedId}:`)) : undefined;
+    const covered = note?.match(/only the monitoring set covers it \(([^)]+)\)/)?.[1];
+    steps.push({
+      key: "live",
+      part: "autopilot",
+      headline: injected ? "This rule skips the tests and goes live." : "This rule passes the tests and goes live.",
+      sub: covered ? `Why it got past: the tests don't include ${taskTitle(covered)}.` : undefined,
+      cards: [...seeds, card(live, "new", injected ? "added directly" : "passed the tests")],
+      links: [],
+      evidence: [
+        {
+          title: `${live.proposed.label ?? ""} rule ${live.lessonId ?? ""}`.trim(),
+          rows: [
+            { label: "rule", value: live.proposed.text ?? "" },
+            ...(injected ? [{ label: "tests", value: "skipped (injected directly)" }] : gateRows(events, live)),
+            ...(note ? [{ label: "demo plan", value: note }] : []),
+            { label: "went live as", value: live.decided!.versionId ?? "" },
+          ],
+        },
+      ],
+    });
+  }
+
+  if (live && reg) {
+    const bad = (reg.evidence ?? []).find((x) => x.label === "BAD");
+    const wrong = rules[target]?.wrong;
+    steps.push({
+      key: "alarm",
+      part: "autopilot",
+      headline: wrong ? `Monitoring catches it: the agent ${wrong}.` : `Monitoring catches a failure on ${taskTitle(reg.taskId ?? "")}.`,
+      sub: harmSentence(extras.alarmRun) ?? `It happens on ${taskTitle(reg.taskId ?? bad?.taskId ?? "")}, which passed before.`,
+      cards: [...seeds, card(live, "live")],
+      tone: "alarm",
+      dots: bad ? [{ label: "Fresh runs", fail: bad.counts.targetFail, total: bad.trials, note: harm }] : undefined,
+      links: run(bad?.runIds[0]),
+      evidence: alarmEvidence(reg, bad, rules[target], target, extras.alarmRun),
+    });
+  }
+
+  if (inv && i && suspect && i.verdict === "verified") {
+    const last = (c: string) => [...i.verification].reverse().find((p) => p.config === c);
+    const withIt = last("current");
+    const without = last("current_minus_suspect");
+    const invLink = [{ label: "See the full investigation", href: `/investigations/${i.investigationId}` }];
+    steps.push({
+      key: "found",
+      part: "bisect",
+      headline: "Bisect finds the rule that did it.",
+      sub: `It searched ${i.line.length} version${i.line.length === 1 ? "" : "s"} and re-ran the failing request with and without the suspect rule.`,
+      cards: [...as(rest, "dim"), { ...suspect, state: "suspect" }],
+      dots:
+        withIt && without
+          ? [
+              { label: "With the rule", fail: withIt.counts.targetFail, total: withIt.trials, note: harm },
+              { label: "Without it", fail: without.counts.targetFail, total: without.trials, note: without.counts.targetFail ? harm : `no ${harm}` },
+            ]
+          : undefined,
+      links: invLink,
+      evidence: [
+        {
+          title: "Search",
+          rows: [
+            { label: "versions", value: i.line.map((l) => l.versionId).join(" → ") },
+            { label: "suspect", value: `${i.suspect?.lessonId ?? ""}: ${i.suspect?.text ?? ""}` },
+          ],
+        },
+        {
+          title: `Verification (${LIMITS.confirmTrials} fresh runs each)`,
+          rows: ["parent", "introducing", "current", "current_minus_suspect"].flatMap((c) => {
+            const pr = last(c);
+            return pr
+              ? [{ label: CONFIG_WORDS[c], value: `${pr.versionId}: ${pr.label ?? "?"}, ${pr.counts.pass} of ${pr.trials} passed`, href: runHref(pr.runIds[0]) }]
+              : [];
+          }),
+        },
+      ],
+    });
+    const others = i.recheck.filter((r) => r.taskId !== i.failureTaskId);
+    const passedBefore = others.filter((r) => r.before?.label === "GOOD");
+    const kept = passedBefore.filter((r) => r.after?.label === "GOOD").length;
+    const fixed = others.filter((r) => r.before?.label !== "GOOD" && r.after?.label === "GOOD").length;
+    const accepted = i.acceptance === "accepted";
+    steps.push({
+      key: "removed",
+      part: "bisect",
+      headline: accepted ? "It removes only that rule." : "Removing it needs a person to decide.",
+      sub: accepted
+        ? `Re-checked ${others.length} other tasks: ${kept === passedBefore.length ? "all" : `${kept} of`} ${passedBefore.length} that passed before still pass${fixed ? `, and ${fixed} that failed now pass` : ""}.`
+        : undefined,
+      cards: [...as(rest, "live"), { ...suspect, state: accepted ? "removed" : "suspect", note: accepted ? "removed" : undefined }],
+      metric: `${shortDuration(Math.round(inv.elapsedMs / 1000))} · ${inv.cost.runs} fresh runs`,
+      links: invLink,
+      evidence: [
+        {
+          title: "Repair",
+          rows: [
+            { label: "new version", value: `${i.repairVersionId ?? "?"} = ${withIt?.versionId ?? "?"} without ${i.suspect?.lessonId ?? "the rule"}` },
+            { label: "cost", value: `${inv.cost.runs} runs, ${shortDuration(Math.round(inv.elapsedMs / 1000))}` },
+          ],
+        },
+        {
+          title: `Re-check: ${others.length} other tasks, before → after`,
+          rows: others.map((r) => ({ label: r.taskId, value: `${r.before?.label ?? "?"} → ${r.after?.label ?? "?"}`, href: runHref(r.after?.runIds?.[0]) })),
+        },
+      ],
+    });
+  }
+
+  const shield: StageCard | null = suspect ? { ...suspect, state: "shield", note: "remembered" } : null;
+  if (antibody && shield) {
+    steps.push({
+      key: "remembered",
+      part: "memory",
+      headline: "The rule is remembered.",
+      sub: "Its failing request is saved with it. A new rule that looks similar gets that request replayed before it can go live.",
+      cards: [...as(rest, "live"), shield],
+      links: [{ label: "See the memory", href: "/immune" }],
+      evidence: [
+        {
+          title: "What is stored",
+          rows: [
+            { label: "rule", value: shield.text },
+            ...(i ? [{ label: "its case", value: `${taskTitle(i.failureTaskId)} (${i.failureTaskId}), check ${target}` }] : []),
+            { label: "matching", value: "the rule's text is embedded (Voyage voyage-3.5-lite, 1024 dims) and found with MongoDB Atlas Vector Search" },
+            { label: "blocking", value: `a match at or above the threshold replays the case with ${LIMITS.confirmTrials} fresh runs; only a failed replay blocks` },
+          ],
+        },
+      ],
+    });
+  }
+
+  if (blocked && shield) {
+    const r = blocked.decided?.recognitionId ? recs.get(blocked.decided.recognitionId) : undefined;
+    const rep = r?.replays.find((x) => x.antibodyId === r.blockedBy) ?? r?.replays[0];
+    const matched = r?.matches.find((m) => m.antibodyId === rep?.antibodyId);
+    const seconds = secs(blocked.decided?.ms ?? r?.ms ?? 0);
+    const runs = blocked.decided?.runs ?? r?.runs ?? 0;
+    const thr = r?.threshold ?? extras.threshold ?? null;
+    const pct = rep ? Math.round(rep.score * 100) : null;
+    steps.push({
+      key: "blocked",
+      part: "memory",
+      headline: `The same idea in new words is blocked in ${seconds} s.`,
+      sub: rep
+        ? `It is ${pct}% similar to the remembered rule${thr ? ` (threshold ${Math.round(thr * 100)}%)` : ""}, so the old request was replayed with it: ${rep.probe.counts.targetFail} of ${rep.probe.trials} runs failed.`
+        : undefined,
+      cards: [],
+      compare: { old: { ...shield, text: matched?.lessonText ?? shield.text }, new: card(blocked, "blocked", "blocked"), between: pct !== null ? `${pct}% similar` : "similar" },
+      dots: rep ? [{ label: "Replay", fail: rep.probe.counts.targetFail, total: rep.probe.trials, note: harm }] : undefined,
+      metric: `${seconds} s · ${runs} runs${inv ? ` (first catch: ${shortDuration(Math.round(inv.elapsedMs / 1000))} · ${inv.cost.runs} runs)` : ""}`,
+      links: run(rep?.probe.runIds[0]),
+      evidence: [
+        {
+          title: "Similarity search",
+          rows: [
+            { label: "new wording", value: blocked.proposed.text ?? "" },
+            ...(r?.matches ?? []).map((m) => ({ label: m.antibodyId, value: `score ${m.score.toFixed(3)} (threshold ${thr ?? "?"}): ${m.lessonText}` })),
+          ],
+        },
+        ...(rep
+          ? [
+              {
+                title: "Replay",
+                rows: [
+                  { label: "case", value: `${taskTitle(rep.probe.taskId)} (${rep.probe.taskId})` },
+                  { label: "fresh runs", value: `${rep.probe.counts.targetFail} of ${rep.probe.trials} failed the check → blocked`, href: runHref(rep.probe.runIds[0]) },
+                  { label: "time", value: `${seconds} s, ${runs} runs` },
+                ],
+              },
+            ]
+          : []),
+      ],
+    });
+  }
+
+  if (antibody && shield) {
+    steps.push({
+      key: "try",
+      part: "memory",
+      headline: "Try a rule: memory checks it live.",
+      sub: `If it looks like the remembered rule, the old request is replayed with it (${LIMITS.confirmTrials} fresh runs).`,
+      cards: [],
+      links: [],
+      live: { shield },
+      evidence: [],
+    });
+  }
+
+  return {
+    sessionId: s.sessionId,
+    recordedAt: String(s.createdAt),
+    steps,
+    baseVersionId: s.activeVersionId,
+    tried: [...new Set(events.flatMap((e) => (e.text ? [e.text] : [])))],
+  };
+}
+
+// The gate's result for a rule that went live: how many test tasks it passed, with a trace.
+function gateRows(events: AutopilotEvent[], live: { proposed: AutopilotEvent; decided?: AutopilotEvent }): EvidenceRow[] {
+  const passed = events.find((e) => e.type === "gate_passed" && e.seq > live.proposed.seq && (!live.decided || e.seq <= live.decided.seq));
+  const tasks = (passed?.evidence ?? []).filter((x) => x.kind === "gate");
+  return tasks.length ? [{ label: "tests", value: `passed all ${tasks.length} test tasks (quick check, 2 runs each)`, href: runHref(tasks[0].runIds[0]) }] : [];
+}
+
+function alarmEvidence(
+  reg: AutopilotEvent,
+  bad: EvidenceItem | undefined,
+  rule: { text: string; wrong: string } | undefined,
+  target: string,
+  r: StageRun | null | undefined,
+): EvidenceSection[] {
+  const task = bad?.taskId ?? reg.taskId ?? "";
+  const st = r?.finalStateSummary ?? {};
+  const keys = ["refund_count", "refunded_total", "amount_paid"].filter((k) => k in st);
+  return [
+    {
+      title: "The failing run",
+      rows: [
+        { label: "request", value: `${taskTitle(task)} (${task})` },
+        ...(r?.toolCalls ?? []).map((c, n) => ({ label: `call ${n + 1}`, value: fmtCall(c) })),
+        ...(keys.length ? [{ label: "final state", value: keys.map((k) => `${k} ${show(st[k])}`).join(", ") }] : []),
+        { label: "check", value: rule ? `${rule.text} (${target})` : target },
+      ],
+    },
+    ...(bad ? [{ title: "Monitoring", rows: [{ label: "fresh runs", value: `${bad.counts.targetFail} of ${bad.trials} failed the check`, href: runHref(bad.runIds[0]) }] }] : []),
+  ];
+}
