@@ -23,7 +23,10 @@ export async function immuneView(): Promise<ImmuneView> {
 
   const feed = await recognitions.find({}, { projection: { _id: 0 } }).sort({ createdAt: -1 }).limit(30).toArray();
   const lastBlock = feed.find((r) => r.decision === "immune_blocked");
-  const blocker = lastBlock ? withFirst.find((a) => a.antibodyId === lastBlock.blockedBy) : undefined;
+  // First catch: the antibody behind the latest block, or (before any block) the newest antibody.
+  const blocker = lastBlock
+    ? withFirst.find((a) => a.antibodyId === lastBlock.blockedBy)
+    : [...withFirst].reverse().find((a) => a.firstCatch);
 
   const repairs = await versions
     .find({ createdBy: "bisect", status: "active" }, { projection: { _id: 0, versionId: 1, investigationId: 1, change: 1 } })
@@ -40,7 +43,7 @@ export async function immuneView(): Promise<ImmuneView> {
     recognitions: feed,
     headline: {
       first:
-        blocker?.firstCatch && lastBlock
+        blocker?.firstCatch
           ? { investigationId: blocker.investigationId, antibodyId: blocker.antibodyId, ms: blocker.firstCatch.ms, runs: blocker.firstCatch.runs }
           : null,
       repeat: lastBlock
