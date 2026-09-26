@@ -1,6 +1,6 @@
 // Every Atlas collection Bisect uses, the atomic id counter, and the indexes (btree + Vector Search).
 import { MongoServerError, type Collection } from "mongodb";
-import type { AgentConfig, Antibody, Budget, History, Investigation, Lesson, RunRecord, Snapshot, Task, Version } from "@/lib/types";
+import type { AgentConfig, Antibody, Budget, History, Investigation, Lesson, Recognition, RunRecord, Snapshot, Task, Version } from "@/lib/types";
 import { getDb } from "./db";
 import { EMBED_DIMS } from "./embed";
 
@@ -26,13 +26,14 @@ export async function col() {
     investigations: db.collection<Investigation>("investigations"),
     budgets: db.collection<Budget>("budgets"),
     antibodies: db.collection<Antibody>("antibodies"),
+    recognitions: db.collection<Recognition>("recognitions"),
     counters: db.collection<Counter>("counters"),
     queryEmbeddings: db.collection<QueryEmbedding>("query_embeddings"),
   };
 }
 
 // Readable ids from an atomic per-prefix sequence: "L1", "v7", "h2", "inv3", "ab1", "ap1".
-export async function nextId(prefix: "L" | "v" | "h" | "inv" | "ab" | "ap"): Promise<string> {
+export async function nextId(prefix: "L" | "v" | "h" | "inv" | "ab" | "ap" | "rec"): Promise<string> {
   const { counters } = await col();
   for (let attempt = 0; ; attempt++) {
     try {
@@ -100,6 +101,9 @@ export async function ensureIndexes(): Promise<string[]> {
     c.runs.createIndex({ "retrievedLessons.id": 1 }),
     c.investigations.createIndex({ investigationId: 1 }, { unique: true }),
     c.antibodies.createIndex({ antibodyId: 1 }, { unique: true }),
+    c.antibodies.createIndex({ investigationId: 1 }, { unique: true }),
+    c.recognitions.createIndex({ recognitionId: 1 }, { unique: true }),
+    c.recognitions.createIndex({ createdAt: -1 }),
   ]);
   report.push("btree: 11 indexes ok");
 

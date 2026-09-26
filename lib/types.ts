@@ -239,7 +239,7 @@ export interface Antibody {
 // One classified batch of fresh trials: a task on a version (or a configuration of it).
 export interface Probe {
   key: string; // stable within the investigation, e.g. "search-v5", "verify-current_minus_suspect"
-  phase: "endpoint" | "search" | "scan" | "verify" | "recheck" | "pinned";
+  phase: "endpoint" | "search" | "scan" | "verify" | "recheck" | "pinned" | "replay" | "gate" | "monitor";
   config?: "parent" | "introducing" | "current" | "current_minus_suspect" | "before" | "after";
   versionId: string;
   versionIndex: number;
@@ -306,4 +306,41 @@ export interface InvestigationView {
   tasks: Record<string, { request: string; workflow: Workflow }>; // failing task + re-check tasks
   houseRules: AgentConfig["houseRules"];
   groundTruth: History["groundTruth"] | null; // the planted answer, when the history was built on purpose
+}
+
+// ---------- immune recognition (spec section 6.3) ----------
+
+// One proposed rule checked against the antibodies. Similarity only picks which case to replay;
+// the decision comes from fresh runs (Confirm on the antibody's failing case).
+export interface Recognition {
+  recognitionId: string; // "rec1", ...
+  text: string;
+  label: Origin;
+  source: "immune_page" | "autopilot";
+  sessionId?: string; // autopilot session
+  baseVersionId: string;
+  candidateVersionId: string | null; // base + the proposed lesson (only created when something matched)
+  lessonId: string | null;
+  threshold: number;
+  matches: { antibodyId: string; score: number; lessonText: string }[]; // top 3 at or above the threshold
+  replays: { antibodyId: string; score: number; probe: Probe }[];
+  decision: "no_match" | "immune_blocked" | "immune_passed";
+  blockedBy: string | null;
+  ms: number; // proposal to decision
+  runs: number;
+  createdAt: Date;
+}
+
+// What GET /api/immune returns.
+export interface ImmuneView {
+  threshold: number | null; // null until calibrated: "Propose a rule" is disabled
+  antibodies: (Omit<Antibody, "embedding"> & { firstCatch: { ms: number; runs: number; modelCalls: number } | null })[];
+  pinnedCount: number; // distinct (task, assertion) pinned tests
+  recognitions: Recognition[]; // newest first
+  headline: {
+    first: { investigationId: string; antibodyId: string; ms: number; runs: number } | null; // the investigation that convicted it
+    repeat: { recognitionId: string; antibodyId: string; ms: number; runs: number; similarity: number } | null; // latest block
+  };
+  baseVersions: { versionId: string; label: string }[]; // choices for "Propose a rule", best first
+  menu: { text: string; kind: "reworded bad rule" | "useful rule" }[]; // prewritten rules for "Propose a rule"
 }

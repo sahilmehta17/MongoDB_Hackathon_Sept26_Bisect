@@ -32,7 +32,9 @@ export async function createAntibody(investigationId: string, repair: Antibody["
     recognitions: 0,
     blocks: 0,
   };
-  await antibodies.insertOne(doc);
+  await antibodies.insertOne({ ...doc });
+  const { waitAntibodySearchable } = await import("@/lib/immune/recognize");
+  await waitAntibodySearchable(doc.antibodyId, doc.embedding);
   await investigations.updateOne(
     { investigationId },
     { $push: { log: { at: new Date(), msg: `antibody ${doc.antibodyId} created from ${doc.convictedLessonId}: its case is now a pinned test` } } },
