@@ -322,7 +322,7 @@ export interface Recognition {
   recognitionId: string; // "rec1", ...
   text: string;
   label: Origin;
-  source: "immune_page" | "autopilot";
+  source: "immune_page" | "autopilot" | "holdout"; // holdout: the private rewordings, tested once after calibration
   sessionId?: string; // autopilot session
   baseVersionId: string;
   candidateVersionId: string | null; // base + the proposed lesson (only created when something matched)

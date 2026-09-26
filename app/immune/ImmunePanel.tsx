@@ -711,6 +711,7 @@ function Feed({ view }: { view: ImmuneView }) {
                   <span className={styles.tags}>
                     <span className={styles.tag}>{ORIGIN_LABEL[rec.label] ?? rec.label}</span>
                     {rec.source === "autopilot" && <span className={styles.tag}>autopilot</span>}
+                    {rec.source === "holdout" && <span className={styles.tag}>holdout test</span>}
                   </span>
                 </div>
                 <span className={styles.feedDecision}>

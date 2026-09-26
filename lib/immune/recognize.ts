@@ -51,18 +51,18 @@ export async function similarAntibodies(text: string, k = IMMUNE_TOP_K, scope: s
 
 // Does the base agent pass this case? Uses the latest 5 normal runs already saved on the base, or
 // runs one Confirm (fixed runIds, so it's paid once and reused).
-export async function baseCaseLabel(baseVersionId: string, taskId: string, target: string): Promise<Label> {
+export async function baseCaseLabel(baseVersionId: string, taskId: string, target: string): Promise<{ label: Label; ranRuns: number }> {
   const { runs } = await col();
   const saved = await runs
     .find({ versionId: baseVersionId, taskId, contextMode: "normal", error: null }, { projection: { _id: 0, assertions: 1, error: 1 } })
     .sort({ createdAt: -1 })
     .limit(LIMITS.confirmTrials)
     .toArray();
-  if (saved.length === LIMITS.confirmTrials) return classify(countOutcomes(saved, target));
+  if (saved.length === LIMITS.confirmTrials) return { label: classify(countOutcomes(saved, target)), ranRuns: 0 };
   const owner = `base-${baseVersionId}`;
   await openBudget(owner, { maxRuns: 200 });
   const p = await confirm({ key: taskId, ownerId: owner, budgetId: owner, phase: "replay", taskId, versionId: baseVersionId, versionIndex: -1, targetAssertion: target });
-  return p.label;
+  return { label: p.label, ranRuns: p.trials };
 }
 
 export async function recognize(o: {
@@ -123,8 +123,10 @@ export async function recognize(o: {
     rec.lessonId = candidate.change!.lessonId;
     await openBudget(recognitionId, { maxRuns: IMMUNE_TOP_K * LIMITS.confirmTrials });
 
+    let baseRuns = 0; // a first-time check that the base passes a case counts toward this recognition
     for (const m of matches) {
-      const baseLabel = await baseCaseLabel(o.baseVersionId, m.failingTaskId, m.targetAssertion);
+      const { label: baseLabel, ranRuns } = await baseCaseLabel(o.baseVersionId, m.failingTaskId, m.targetAssertion);
+      baseRuns += ranRuns;
       if (baseLabel !== "GOOD") {
         rec.untestable.push({ antibodyId: m.antibodyId, score: m.score, baseLabel });
         continue;
@@ -146,7 +148,7 @@ export async function recognize(o: {
       }
     }
     rec.decision = rec.blockedBy ? "immune_blocked" : "immune_passed";
-    rec.runs = (await costOf(recognitionId)).runs;
+    rec.runs = (await costOf(recognitionId)).runs + baseRuns;
   }
   rec.ms = Date.now() - t0;
 
