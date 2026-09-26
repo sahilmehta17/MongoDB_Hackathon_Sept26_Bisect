@@ -106,3 +106,76 @@
   margin-bottom: 10px;
   font-size: 0.9rem;
 }
+
+.landing {
+  padding: 48px 0 24px;
+  display: grid;
+  gap: 24px;
+}
+
+.sentence {
+  font-size: clamp(1.8rem, 4.2vw, 2.6rem);
+  line-height: 1.2;
+  letter-spacing: -0.01em;
+  margin: 0;
+  max-width: 24em;
+}
+
+.loopRow {
+  font-size: 16px;
+}
+
+.summary {
+  display: grid;
+  gap: 10px;
+  padding-top: 8px;
+}
+
+.summaryTitle {
+  margin: 0;
+  color: var(--muted);
+  font-size: 15px;
+}
+
+.summaryNumbers {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 16px 40px;
+}
+
+.summaryNumbers div {
+  display: grid;
+  gap: 2px;
+}
+
+.summaryNumbers strong {
+  font-size: 30px;
+}
+
+.summaryNumbers span {
+  color: var(--muted);
+  font-size: 15px;
+}
+
+.allResults {
+  justify-self: start;
+  border: none;
+  background: none;
+  padding: 0;
+  color: var(--accent);
+  font: inherit;
+  cursor: pointer;
+}
+
+.behind {
+  margin-top: 32px;
+  border-top: 1px solid var(--border);
+  padding-top: 16px;
+}
+
+.behind > summary {
+  cursor: pointer;
+  font-size: 18px;
+  font-weight: 600;
+  color: var(--muted);
+}

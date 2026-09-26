@@ -3,7 +3,9 @@
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
+import LoopStrip from "./components/LoopStrip";
 import Results from "./Results";
+import ResultsSummary from "./ResultsSummary";
 import styles from "./home.module.css";
 
 type DemoCase = {
@@ -82,23 +84,32 @@ export default function Home() {
 
   return (
     <main className="page">
-      <section className={styles.hero}>
-        <p className="eyebrow">A debugger for self-improving AI agents</p>
-        <h1 className={styles.title}>Bisect</h1>
-        <p className={styles.lead}>
-          Agents that teach themselves also learn bad habits. Bisect finds the exact rule the agent learned that broke
-          things, proves it with fresh runs, and removes only that rule. Then it remembers: try to sneak the same bad
-          rule back in, in any wording, and it is caught in seconds.
-        </p>
+      <section className={styles.landing}>
+        <h1 className={styles.sentence}>
+          Self-improving agents learn bad habits. Bisect finds the exact bad rule, removes only it, and remembers it.
+        </h1>
         <div className={styles.actions}>
-          <Link className={styles.primary} href="/autopilot">
-            Watch autopilot
+          <Link className={styles.primary} href="/story">
+            Watch the agent learn
           </Link>
-          <Link className={styles.secondary} href="/immune">
-            Immune memory: propose a rule
+          <Link className={styles.secondary} href="/story?try=1">
+            Try to sneak a bad rule past it
           </Link>
         </div>
+        <div className={styles.loopRow}>
+          <LoopStrip />
+        </div>
+        <ResultsSummary onAll={() => {
+          const d = document.getElementById("behind") as HTMLDetailsElement | null;
+          if (d) {
+            d.open = true;
+            d.scrollIntoView({ behavior: "smooth" });
+          }
+        }} />
       </section>
+
+      <details id="behind" className={styles.behind}>
+        <summary>Behind the scenes</summary>
 
       <section className={styles.pillars}>
         {PILLARS.map(([h, p]) => (
@@ -199,6 +210,8 @@ export default function Home() {
           </p>
         )}
       </section>
+
+      </details>
 
       <footer className={styles.footer}>
         MongoDB Atlas holds the lessons, versions, run records and antibodies, searched with Atlas Vector Search · Vercel
