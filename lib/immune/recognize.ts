@@ -124,7 +124,11 @@ export async function recognize(o: {
     await openBudget(recognitionId, { maxRuns: IMMUNE_TOP_K * LIMITS.confirmTrials });
 
     let baseRuns = 0; // a first-time check that the base passes a case counts toward this recognition
+    const casesTried = new Set<string>(); // antibodies from different memories can share one case
     for (const m of matches) {
+      const caseKey = `${m.failingTaskId}/${m.targetAssertion}`;
+      if (casesTried.has(caseKey)) continue;
+      casesTried.add(caseKey);
       const { label: baseLabel, ranRuns } = await baseCaseLabel(o.baseVersionId, m.failingTaskId, m.targetAssertion);
       baseRuns += ranRuns;
       if (baseLabel !== "GOOD") {

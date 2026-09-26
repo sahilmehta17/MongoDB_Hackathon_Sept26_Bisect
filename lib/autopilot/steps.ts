@@ -181,7 +181,13 @@ export async function immuneCheck(sessionId: string, pos: number, text: string, 
     // This session's antibodies only: the session's agent starts fresh and is guarded by its own convictions.
     const r = await recognize({ text, baseVersionId: s.activeVersionId, label, source: "autopilot", sessionId });
     // The gate reuses the candidate the replay ran on, so the lesson is tested as one version.
-    if (r.candidateVersionId) await sessions.updateOne({ sessionId }, { $set: { candidateVersionId: r.candidateVersionId } });
+    // A blocked candidate is rejected and cleared.
+    if (r.candidateVersionId && r.decision === "immune_blocked") {
+      await setVersionStatus(r.candidateVersionId, "rejected");
+      await sessions.updateOne({ sessionId }, { $set: { candidateVersionId: null } });
+    } else if (r.candidateVersionId) {
+      await sessions.updateOne({ sessionId }, { $set: { candidateVersionId: r.candidateVersionId } });
+    }
     const untestable = r.untestable.map((u) => `${u.antibodyId} (${u.score.toFixed(2)}; this agent already fails its case: ${u.baseLabel})`);
     if (r.decision === "no_match") {
       await addEvent(sessionId, {

@@ -810,7 +810,7 @@ function Repair({ view }: { view: InvestigationView }) {
             ) : null}
             .
           </p>
-          <RecheckTable rows={inv.recheck} view={view} beforeV={beforeV} afterV={afterV} />
+          <RecheckTable rows={inRecheckOrder(inv)} view={view} beforeV={beforeV} afterV={afterV} />
         </>
       ) : (
         <p className="muted">{running ? "Re-checking other tasks…" : "No re-check rows recorded."}</p>
@@ -901,4 +901,11 @@ function RawLog({ view }: { view: InvestigationView }) {
       </ol>
     </details>
   );
+}
+
+// Re-check rows in the frozen order (the failing task first), not the order their runs finished.
+function inRecheckOrder(inv: InvestigationView["investigation"]) {
+  const order = inv.recheckTaskIds ?? [];
+  const rank = (id: string) => (order.indexOf(id) === -1 ? order.length : order.indexOf(id));
+  return [...inv.recheck].sort((a, b) => rank(a.taskId) - rank(b.taskId));
 }

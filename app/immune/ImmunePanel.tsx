@@ -228,7 +228,7 @@ function PinnedStrip({ view }: { view: ImmuneView }) {
         )}
         <span className={styles.pinnedMeta}>
           {plural(view.antibodies.length, "antibody", "antibodies")} ·{" "}
-          {view.threshold === null ? "similarity threshold not calibrated yet" : `similarity threshold ${fmtScore(view.threshold)}`}
+          {view.threshold === null ? "similarity threshold not calibrated yet" : `similarity threshold ${view.threshold}`}
         </span>
       </div>
     </div>
@@ -514,7 +514,7 @@ function ResultCard({ rec, view }: { rec: Recognition; view: ImmuneView }) {
     title = "No known bad habit matched";
     sub = (
       <>
-        No antibody scored at or above the similarity threshold ({fmtScore(rec.threshold)}), so nothing needed replaying. The rule goes to
+        No antibody scored at or above the similarity threshold ({rec.threshold}), so nothing needed replaying. The rule goes to
         the normal gate.
       </>
     );
@@ -604,6 +604,7 @@ function AntibodyCard({ ab }: { ab: AntibodyView }) {
           {ab.antibodyId}
         </span>
         <span className={styles.tag}>{ORIGIN_LABEL[ab.label] ?? ab.label}</span>
+        <span className={styles.tag}>{ab.scope === "lab" ? "lab memory (manual investigations)" : `autopilot ${ab.scope}'s memory`}</span>
         <span className={cx(styles.tag, ab.repair === "removed" ? styles.tagGood : styles.tagWarn)}>
           {ab.repair === "removed" ? "removed from the agent" : "awaiting a decision"}
         </span>

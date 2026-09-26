@@ -49,7 +49,7 @@ const PILLARS = [
 
 export default function Home() {
   const router = useRouter();
-  const [cases, setCases] = useState<DemoCase[]>([]);
+  const [cases, setCases] = useState<DemoCase[] | null>(null);
   const [rows, setRows] = useState<Row[]>([]);
   const [hidden, setHidden] = useState<{ investigationId: string; reason: string }[]>([]);
   const [busy, setBusy] = useState<string | null>(null);
@@ -91,7 +91,7 @@ export default function Home() {
           rule back in, in any wording, and it is caught in seconds.
         </p>
         <div className={styles.actions}>
-          <Link className="button" href="/autopilot">
+          <Link className={styles.primary} href="/autopilot">
             Watch autopilot
           </Link>
           <Link className={styles.secondary} href="/immune">
@@ -118,14 +118,15 @@ export default function Home() {
           Bisect names the right one. Everything shown is measured live on today&apos;s build.
         </p>
         {err && <p className="notice notice-bad">{err}</p>}
-        {cases.length === 0 && <p className="muted">No test cases built yet.</p>}
+        {cases === null && <p className="muted">Loading…</p>}
+        {cases?.length === 0 && <p className="muted">No test cases built yet.</p>}
         <div className={styles.cases}>
-          {cases.map((c) => (
+          {(cases ?? []).map((c) => (
             <article key={c.historyId} className="card">
-              <div className="card-head">
+              <div className={styles.caseHead}>
                 <span className="chip chip-info">planted {c.seedId}</span>
                 <span className="muted">
-                  {c.historyId} · {c.versions} versions
+                  history {c.historyId} · {c.versions} versions
                 </span>
               </div>
               <div className="card-body">
@@ -173,7 +174,10 @@ export default function Home() {
                   <td>
                     {r.failureTaskId} <span className="muted">({r.targetAssertion})</span>
                   </td>
-                  <td>{VERDICT[r.verdict] ?? r.verdict}</td>
+                  <td>
+                    {VERDICT[r.verdict] ?? r.verdict}
+                    {r.acceptance === "accepted" ? ", repaired" : r.acceptance === "awaiting_decision" ? ", fix needs a decision" : ""}
+                  </td>
                   <td>
                     {r.suspect && r.verdict === "verified" ? r.suspect.lessonId : "—"}
                     {r.antibodyId ? ` → ${r.antibodyId}` : ""}

@@ -466,10 +466,10 @@
   gap: 6px;
   padding: 1px 11px;
   border: 2px solid currentColor;
-  border-radius: 999px;
+  border-radius: 14px;
   font-weight: 700;
   font-size: 0.95rem;
-  white-space: nowrap;
+  max-width: 100%;
 }
 
 .typeGood {

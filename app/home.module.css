@@ -82,3 +82,27 @@
   gap: 12px;
   margin-bottom: 16px;
 }
+
+.primary {
+  display: inline-block;
+  padding: 10px 16px;
+  border: 1px solid var(--fg);
+  border-radius: var(--radius);
+  background: var(--fg);
+  color: var(--bg);
+  text-decoration: none;
+  font-weight: 600;
+}
+
+.primary:hover {
+  opacity: 0.88;
+}
+
+.caseHead {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 10px;
+  font-size: 0.9rem;
+}
