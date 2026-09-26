@@ -2,11 +2,13 @@
 
 // The results page for one investigation. Loads GET /api/investigations/[id], polls every 2 s while
 // the investigation is running, and explains every step in plain language. It shows only numbers
-// that are in the data, always with their sample size.
+// that are in the data, always with their sample size. By default it shows the short story
+// (cards, search strip, with/without, re-check line); everything else is under "Show all evidence".
 import Link from "next/link";
 import { useCallback, useEffect, useState } from "react";
 import type { Counts, Investigation, InvestigationView, Label, Origin, Probe, RecheckRow, Verdict } from "@/lib/types";
 import { LIMITS } from "@/lib/types";
+import styles from "./report.module.css";
 
 const POLL_MS = 2000;
 
@@ -268,7 +270,7 @@ function Report({ view, elapsedMs, stale }: { view: InvestigationView; elapsedMs
   const verdict = VERDICT[inv.verdict] ?? { text: inv.verdict, tone: "neutral" as Tone };
 
   return (
-    <main className="report">
+    <main className={`report ${styles.page}`}>
       {stale ? (
         <div className="notice notice-warn" role="status">
           Couldn&apos;t refresh ({stale}). Showing the last data received; retrying every {POLL_MS / 1000} s.
@@ -314,12 +316,10 @@ function Report({ view, elapsedMs, stale }: { view: InvestigationView; elapsedMs
         </dl>
       </header>
 
-      <Steps view={view} />
       <SummaryCards view={view} />
-      <Timeline view={view} />
-      <Evidence view={view} />
-      <Repair view={view} />
-      <CostPanel view={view} elapsedMs={elapsedMs} />
+      <SearchStrip view={view} />
+      <WithWithout view={view} />
+      <RecheckLine view={view} />
       {inv.antibodyId ? (
         <section className="antibody" aria-label="Antibody">
           <p className="antibody-title">
@@ -330,7 +330,22 @@ function Report({ view, elapsedMs, stale }: { view: InvestigationView; elapsedMs
           </p>
         </section>
       ) : null}
-      <RawLog view={view} />
+
+      {/* Everything that used to be on the page is still here, one click away. */}
+      <details className={`${styles.disclosure} ${styles.allEvidence}`}>
+        <summary>
+          <span className={styles.whenClosed}>Show all evidence ▸</span>
+          <span className={styles.whenOpen}>Hide the evidence ▾</span>
+        </summary>
+        <div className={styles.allEvidenceBody}>
+          <Steps view={view} />
+          <Timeline view={view} />
+          <Evidence view={view} />
+          <Repair view={view} />
+          <CostPanel view={view} elapsedMs={elapsedMs} />
+          <RawLog view={view} />
+        </div>
+      </details>
     </main>
   );
 }
@@ -339,9 +354,15 @@ function Report({ view, elapsedMs, stale }: { view: InvestigationView; elapsedMs
 
 const EXPECTED: Record<string, Label> = { parent: "GOOD", introducing: "BAD", current: "BAD", current_minus_suspect: "GOOD" };
 
+// The probe for one configuration. Probes are appended as they finish, so when a scan led to a
+// second verification round, the last one is the round for the current suspect.
+function configProbe(inv: Investigation, config: string): Probe | undefined {
+  return inv.verification.findLast((p) => p.config === config);
+}
+
 // The conviction rule: all four configurations were run and each came out as expected.
 function fourWayMatched(inv: Investigation): boolean {
-  return Object.entries(EXPECTED).every(([c, want]) => inv.verification.find((p) => p.config === c)?.label === want);
+  return Object.entries(EXPECTED).every(([c, want]) => configProbe(inv, c)?.label === want);
 }
 
 function Steps({ view }: { view: InvestigationView }) {
@@ -515,6 +536,283 @@ function SummaryCards({ view }: { view: InvestigationView }) {
   );
 }
 
+// ---------- the short story: search strip, with/without, re-check line ----------
+
+const GLYPH: Record<Label, string> = { GOOD: "✓", BAD: "✗", INCONCLUSIVE: "?" };
+const WORD: Record<Label, string> = { GOOD: "passes", BAD: "fails", INCONCLUSIVE: "inconclusive" };
+const DOT_TONE: Record<Label, string> = { GOOD: styles.good, BAD: styles.bad, INCONCLUSIVE: styles.warn };
+
+function originTone(origin: Origin): Tone {
+  return origin === "natural" || origin === "seeded" ? "neutral" : "warn";
+}
+
+// Every version of the searched line in a row (left: the early, good end; right: today), one dot per
+// version: filled where the failing task was run on it, hollow where it wasn't.
+function SearchStrip({ view }: { view: InvestigationView }) {
+  const inv = view.investigation;
+  const line = inv.line;
+  if (!line.length) return null;
+  const running = inv.verdict === "running";
+  const convicted = fourWayMatched(inv);
+
+  // Probes per version, in the order they finished; search and scan steps numbered in that order.
+  const probesOf = new Map<string, Probe[]>();
+  const stepOf = new Map<string, number>();
+  let searchSteps = 0;
+  let scanSteps = 0;
+  for (const p of inv.probes) {
+    probesOf.set(p.versionId, [...(probesOf.get(p.versionId) ?? []), p]);
+    if (p.phase === "search" || p.phase === "scan") {
+      if (p.phase === "search") searchSteps++;
+      else scanSteps++;
+      if (!stepOf.has(p.versionId)) stepOf.set(p.versionId, stepOf.size + 1);
+    }
+  }
+  const tested = line.filter((v) => probesOf.has(v.versionId)).length;
+  const n = line.length;
+  const first = line[0].versionId;
+  const last = line[n - 1].versionId;
+  const endLabel = (v: string) => probesOf.get(v)?.findLast((p) => p.phase === "endpoint")?.label;
+
+  // While running, the search is over once there is a suspect (verification comes next).
+  const caption =
+    running && !inv.suspect
+      ? `Searching ${plural(n, "version")}, tested ${tested} so far`
+      : inv.verdict === "baseline_not_reproduced"
+        ? `${plural(n, "version")} in range, tested ${tested}`
+        : `Searched ${plural(n, "version")}, tested ${tested}`;
+
+  let how: string;
+  if (inv.verdict === "baseline_not_reproduced") {
+    const g = endLabel(first);
+    const b = endLabel(last);
+    how =
+      g && g !== "GOOD"
+        ? `The early version ${first} did not pass (${WORD[g]}), so no search ran.`
+        : `The failure did not reproduce on ${last}${b ? ` (${WORD[b]})` : ""}, so no search ran.`;
+  } else if (searchSteps + scanSteps > 0) {
+    const steps = [plural(searchSteps, "search step"), scanSteps ? plural(scanSteps, "scan step") : ""].filter(Boolean).join(" and ");
+    how = `Both ends first, then ${steps}, numbered in the order they ran.`;
+  } else if (n === 2 && tested === 2) {
+    how = "Both ends tested; they are neighbors, so no search was needed.";
+  } else {
+    how = running ? "Testing both ends first…" : "Both ends tested.";
+  }
+
+  const present = new Set<Label>();
+  let untested = 0;
+  // A long line keeps every dot but only labels the versions that matter, so it stays readable.
+  const dense = n > 12;
+
+  const items = line.map((v, i) => {
+    const probes = probesOf.get(v.versionId) ?? [];
+    const latest = probes.at(-1);
+    if (latest) present.add(latest.label);
+    else untested++;
+    const isSuspect = inv.suspect?.versionId === v.versionId;
+    const labelled = !dense || latest !== undefined || isSuspect || i === 0 || i === n - 1;
+    const step = stepOf.get(v.versionId);
+    const lesson = v.lessonId ? view.lessons[v.lessonId] : undefined;
+    const top = step !== undefined ? String(step) : i === 0 ? "earlier" : i === n - 1 ? "today" : "";
+    const title = [
+      v.versionId,
+      lesson ? `adds “${lesson.text}” (${ORIGIN_TEXT[lesson.origin] ?? lesson.origin})` : v.index === 0 ? "starting point" : "",
+      probes.length
+        ? probes.map((p) => `${PHASE_TEXT[p.phase] ?? p.phase}: ${targetCountsText(p.counts, p.trials)}`).join("; ")
+        : "not tested",
+    ]
+      .filter(Boolean)
+      .join(" · ");
+    return (
+      <li
+        key={v.versionId}
+        className={`${styles.ver} ${i === 0 ? styles.verFirst : ""} ${i === n - 1 ? styles.verLast : ""} ${isSuspect ? styles.suspect : ""}`}
+        title={title}
+      >
+        <span className={`${styles.top} ${step !== undefined ? styles.stepNo : ""}`} aria-hidden="true">
+          {top}
+        </span>
+        <span className={styles.dotRow} aria-hidden="true">
+          <span className={`${styles.dot} ${latest ? DOT_TONE[latest.label] : styles.hollow}`}>{latest ? GLYPH[latest.label] : ""}</span>
+        </span>
+        <span className={labelled ? styles.vid : "sr-only"}>{v.versionId}</span>
+        {isSuspect ? (
+          <span className={styles.tag} aria-hidden="true">
+            {convicted ? "cause" : "suspect"}
+          </span>
+        ) : null}
+        <span className="sr-only">
+          {latest ? `: ${WORD[latest.label]}` : ": not tested"}
+          {step !== undefined ? `, step ${step}` : ""}
+          {isSuspect ? (convicted ? ", the cause" : ", the suspect") : ""}
+        </span>
+      </li>
+    );
+  });
+
+  const suspect = inv.suspect;
+  return (
+    <section className={styles.block} aria-labelledby="search-strip">
+      <h2 id="search-strip">{caption}</h2>
+      <p className={styles.sub}>{how}</p>
+      <div className={styles.stripScroll}>
+        <ol className={`${styles.strip} ${dense ? styles.dense : ""}`} aria-label={`Versions from ${first} (earlier) to ${last} (today)`}>
+          {items}
+        </ol>
+      </div>
+      <p className={styles.legend} aria-hidden="true">
+        {(["GOOD", "BAD", "INCONCLUSIVE"] as Label[])
+          .filter((l) => present.has(l))
+          .map((l) => (
+            <span key={l} className={styles.legendItem}>
+              <span className={`${styles.dot} ${styles.dotSmall} ${DOT_TONE[l]}`}>{GLYPH[l]}</span> {WORD[l]}
+            </span>
+          ))}
+        {untested ? (
+          <span className={styles.legendItem}>
+            <span className={`${styles.dot} ${styles.dotSmall} ${styles.hollow}`} /> not tested
+          </span>
+        ) : null}
+      </p>
+      {suspect ? (
+        <div className={styles.rule}>
+          <p className={styles.ruleHead}>
+            <strong className={styles.tBad}>{suspect.versionId}</strong> {convicted ? "added the rule that broke it" : "added the suspected rule"}{" "}
+            <Chip tone={originTone(suspect.origin)}>{ORIGIN_TEXT[suspect.origin] ?? suspect.origin}</Chip>
+          </p>
+          <blockquote className={styles.quote}>“{suspect.text}”</blockquote>
+        </div>
+      ) : null}
+    </section>
+  );
+}
+
+const ROWS: { config: NonNullable<Probe["config"]>; name: string }[] = [
+  { config: "parent", name: "Before the rule" },
+  { config: "introducing", name: "Rule added" },
+  { config: "current", name: "Today" },
+  { config: "current_minus_suspect", name: "Today without the rule" },
+];
+
+// What a configuration showed, in words, from its actual label and counts.
+function observedText(p: Probe): string {
+  if (p.label === "GOOD") return `passes ${p.counts.pass}/${p.trials}`;
+  if (p.label === "BAD") return `fails ${p.counts.targetFail}/${p.trials}`;
+  return `inconclusive, ${p.counts.pass}/${p.trials} passed`;
+}
+
+// The four-way verification as four plain rows.
+function WithWithout({ view }: { view: InvestigationView }) {
+  const inv = view.investigation;
+  if (!inv.suspect && !inv.verification.length) return null;
+  const running = inv.verdict === "running";
+  const allDone = ROWS.every((r) => configProbe(inv, r.config));
+  const matched = fourWayMatched(inv);
+
+  return (
+    <section className={styles.block} aria-labelledby="with-without">
+      <h2 id="with-without">With and without the rule</h2>
+      <ul className={styles.rows}>
+        {ROWS.map((r) => {
+          const p = configProbe(inv, r.config);
+          if (!p) {
+            return (
+              <li key={r.config} className={styles.row}>
+                <span className={styles.rowMark} aria-hidden="true">
+                  <span className={`${styles.dot} ${styles.dotSmall} ${styles.hollow}`} />
+                </span>
+                <span className={styles.rowText}>
+                  <strong>{r.name}</strong>: <span className="muted">{running ? "running…" : "not run"}</span>
+                </span>
+              </li>
+            );
+          }
+          const want = EXPECTED[r.config];
+          return (
+            <li key={r.config} className={styles.row}>
+              <span className={styles.rowMark} aria-hidden="true">
+                <span className={`${styles.dot} ${styles.dotSmall} ${DOT_TONE[p.label]}`}>{GLYPH[p.label]}</span>
+              </span>
+              <span className={styles.rowText}>
+                <strong>{r.name}</strong>: {observedText(p)} <span className={styles.rowVersion}>({p.versionId})</span>
+                {p.label !== want ? <span className={styles.tWarn}> · expected to {want === "GOOD" ? "pass" : "fail"}</span> : null}
+                {p.counts.error ? <span className={styles.tWarn}> · {plural(p.counts.error, "infra error")}</span> : null}
+              </span>
+              <span className={styles.rowRuns}>
+                <RunLinks runIds={p.runIds} />
+              </span>
+            </li>
+          );
+        })}
+      </ul>
+      {allDone && matched ? (
+        <p className={`${styles.conclusion} ${styles.tGood}`}>All four as expected, so this rule is the cause.</p>
+      ) : allDone && !running ? (
+        <p className={`${styles.conclusion} ${styles.tWarn}`}>Not all four as expected, so the rule is not convicted and nothing was removed.</p>
+      ) : null}
+    </section>
+  );
+}
+
+// One line on the repair, with the re-check table one click away.
+function RecheckLine({ view }: { view: InvestigationView }) {
+  const inv = view.investigation;
+  if (!inv.repairVersionId) return null;
+  const running = inv.verdict === "running";
+  const others = inv.recheck.filter((r) => r.taskId !== inv.failureTaskId);
+  const passedBefore = others.filter((r) => r.before.label === "GOOD");
+  const stillPass = passedBefore.filter((r) => r.after.label === "GOOD").length;
+  const nowPass = others.filter((r) => r.before.label !== "GOOD" && r.after.label === "GOOD").length;
+  const failingAfter = inv.recheck.find((r) => r.taskId === inv.failureTaskId)?.after.label;
+
+  let tone: string;
+  let text: React.ReactNode;
+  if (inv.acceptance === "accepted") {
+    tone = styles.tGood;
+    text = (
+      <>
+        Removed only that rule.{" "}
+        {passedBefore.length
+          ? `${stillPass} of ${plural(passedBefore.length, "other task")} still ${passedBefore.length === 1 ? "passes" : "pass"}.`
+          : "No other re-checked task was passing before."}
+        {nowPass ? ` ${nowPass} more that failed before now ${nowPass === 1 ? "passes" : "pass"} too.` : ""}
+      </>
+    );
+  } else if (inv.acceptance === "awaiting_decision") {
+    tone = styles.tWarn;
+    text = inv.broken.length
+      ? `Removing it would break ${plural(inv.broken.length, "other task")} that passed before: needs a person.`
+      : failingAfter && failingAfter !== "GOOD"
+        ? "Removing it did not fix the failing task: needs a person."
+        : "The repair did not meet the acceptance bar: needs a person.";
+  } else if (running) {
+    tone = styles.tInfo;
+    const planned = inv.recheckTaskIds?.length;
+    text = `Removed only that rule in a new version; re-checking tasks${planned ? ` (${inv.recheck.length} of ${planned} done)` : ""}…`;
+  } else {
+    tone = "muted";
+    text = "A repair was made, but no decision was recorded.";
+  }
+
+  const beforeV = inv.recheck[0]?.before.versionId ?? inv.badVersionId;
+  return (
+    <section className={styles.block} aria-label="Repair">
+      <p className={`${styles.recheckLine} ${tone}`}>{text}</p>
+      {inv.recheck.length ? (
+        <details className={styles.disclosure}>
+          <summary>
+            <span className={styles.whenClosed}>Show the re-check ▸</span>
+            <span className={styles.whenOpen}>Hide the re-check ▾</span>
+          </summary>
+          <div className={styles.disclosureBody}>
+            <RecheckTable rows={inRecheckOrder(inv)} view={view} beforeV={beforeV} afterV={inv.repairVersionId} />
+          </div>
+        </details>
+      ) : null}
+    </section>
+  );
+}
+
 // ---------- version timeline ----------
 
 function Timeline({ view }: { view: InvestigationView }) {
@@ -605,7 +903,7 @@ const CONFIGS: { config: NonNullable<Probe["config"]>; name: string; help: strin
 
 function Evidence({ view }: { view: InvestigationView }) {
   const inv = view.investigation;
-  const byConfig = (c: string) => inv.verification.find((p) => p.config === c);
+  const byConfig = (c: string) => configProbe(inv, c);
   const cur = byConfig("current");
   const minus = byConfig("current_minus_suspect");
   const running = inv.verdict === "running";

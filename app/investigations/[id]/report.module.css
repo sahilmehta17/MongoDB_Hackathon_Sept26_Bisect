@@ -1,0 +1,413 @@
+/* The investigation page's short story (search strip, with/without rows, re-check line) and its
+   disclosures. Builds on the shared tokens and report styles in app/globals.css; no new colors. */
+
+.page {
+  --dot: 30px;
+  --dot-row: 44px;
+  --top: 24px;
+}
+
+/* Keep every label on this page at 14 px or more (run links excepted). */
+.page h2:global(.card-kicker) {
+  font-size: 0.9rem;
+}
+
+.page :global(.chip) {
+  font-size: max(0.8em, 0.875rem);
+}
+
+.page :global(.table) th,
+.page :global(.tile-note) {
+  font-size: 0.9rem;
+}
+
+.page :global(.step-detail),
+.page :global(.step-status) {
+  font-size: max(0.88em, 0.875rem);
+}
+
+/* Long ids in the raw log wrap instead of widening the page on a phone. */
+.page :global(.rawlog) li > span {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+/* ---------- blocks ---------- */
+
+.block {
+  margin: 36px 0 0;
+}
+
+.sub {
+  margin: 0 0 14px;
+  color: var(--muted);
+  font-size: 1rem;
+}
+
+.tGood {
+  color: var(--good);
+}
+
+.tBad {
+  color: var(--bad);
+}
+
+.tWarn {
+  color: var(--warn);
+}
+
+.tInfo {
+  color: var(--info);
+}
+
+/* ---------- the search strip ---------- */
+
+.stripScroll {
+  overflow-x: auto;
+  padding: 2px 0 4px;
+}
+
+.strip {
+  display: flex;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.ver {
+  position: relative;
+  flex: 1 1 0;
+  min-width: 48px;
+  max-width: 132px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+}
+
+/* the line joining the dots */
+.ver::before {
+  content: "";
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: calc(var(--top) + var(--dot-row) / 2 - 2px);
+  height: 4px;
+  background: var(--border);
+}
+
+.verFirst::before {
+  left: 50%;
+}
+
+.verLast::before {
+  right: 50%;
+}
+
+.top {
+  height: var(--top);
+  line-height: var(--top);
+  font-size: 0.875rem;
+  color: var(--muted);
+  white-space: nowrap;
+}
+
+/* labels at the two ends grow inward, never past the strip */
+.verFirst .top,
+.dense .verFirst .tag {
+  align-self: flex-start;
+}
+
+.verLast .top,
+.dense .verLast .tag {
+  align-self: flex-end;
+}
+
+.stepNo {
+  font-size: 1rem;
+  font-weight: 800;
+  color: var(--info);
+}
+
+.dotRow {
+  position: relative;
+  z-index: 1;
+  height: var(--dot-row);
+  display: grid;
+  place-items: center;
+}
+
+.dot {
+  display: inline-grid;
+  place-items: center;
+  flex: none;
+  width: var(--dot);
+  height: var(--dot);
+  border-radius: 50%;
+  border: 3px solid transparent;
+  font-size: 1rem;
+  font-weight: 800;
+  line-height: 1;
+  color: var(--bg);
+}
+
+.good {
+  background: var(--good);
+  border-color: var(--good);
+}
+
+.bad {
+  background: var(--bad);
+  border-color: var(--bad);
+}
+
+.warn {
+  background: var(--warn);
+  border-color: var(--warn);
+}
+
+.hollow {
+  background: var(--bg);
+  border-color: var(--border-strong);
+}
+
+.dotRow .hollow {
+  width: calc(var(--dot) * 0.66);
+  height: calc(var(--dot) * 0.66);
+}
+
+.suspect .dot {
+  width: calc(var(--dot) + 4px);
+  height: calc(var(--dot) + 4px);
+  box-shadow:
+    0 0 0 3px var(--bg),
+    0 0 0 6px var(--bad);
+}
+
+.vid {
+  margin-top: 2px;
+  font-family: var(--mono);
+  font-size: 1rem;
+  font-weight: 600;
+  color: var(--fg);
+  white-space: nowrap;
+}
+
+.suspect .vid {
+  color: var(--bad);
+  font-weight: 800;
+}
+
+.tag {
+  font-size: 0.875rem;
+  font-weight: 800;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--bad);
+  white-space: nowrap;
+}
+
+/* long lines: narrower columns, smaller ids (untested versions go unlabelled) */
+.dense .ver {
+  min-width: 36px;
+}
+
+.dense .vid {
+  font-size: 0.875rem;
+}
+
+.legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px 20px;
+  margin: 12px 0 0;
+  color: var(--muted);
+  font-size: 1rem;
+}
+
+.legendItem {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.dotSmall {
+  width: 22px;
+  height: 22px;
+  border-width: 2px;
+  font-size: 0.875rem;
+}
+
+.rule {
+  margin: 20px 0 0;
+}
+
+.ruleHead {
+  margin: 0;
+  font-size: 1.125rem;
+}
+
+.quote {
+  margin: 8px 0 0;
+  padding: 2px 0 2px 16px;
+  border-left: 4px solid var(--bad);
+  font-size: 1.3rem;
+  font-weight: 600;
+  line-height: 1.35;
+  max-width: 48em;
+}
+
+/* ---------- with / without ---------- */
+
+/* One grid for all four rows, so the run links line up in a column right after the longest row. */
+.rows {
+  display: grid;
+  grid-template-columns: 28px minmax(0, max-content) auto;
+  justify-content: start;
+  gap: 16px 14px;
+  margin: 10px 0 0;
+  padding: 0;
+  list-style: none;
+}
+
+.row {
+  grid-column: 1 / -1;
+  display: grid;
+  grid-template-columns: subgrid;
+  align-items: center;
+  row-gap: 4px;
+  font-size: 1.25rem;
+  line-height: 1.35;
+}
+
+.rowMark {
+  display: grid;
+  place-items: center;
+}
+
+.rowText {
+  min-width: 0;
+}
+
+.rowVersion {
+  color: var(--muted);
+  font-family: var(--mono);
+  font-size: 0.8em;
+}
+
+.rowRuns {
+  padding-left: 18px;
+  font-size: 1rem;
+}
+
+.conclusion {
+  margin: 18px 0 0;
+  font-size: 1.125rem;
+  font-weight: 700;
+}
+
+/* ---------- re-check line ---------- */
+
+.recheckLine {
+  margin: 0;
+  font-size: 1.25rem;
+  font-weight: 700;
+  line-height: 1.4;
+}
+
+/* ---------- disclosures ---------- */
+
+.disclosure > summary {
+  display: inline-block;
+  padding: 6px 0;
+  cursor: pointer;
+  list-style: none;
+  font-size: 1.05rem;
+  font-weight: 700;
+  color: var(--fg);
+  text-decoration: underline;
+  text-decoration-color: var(--border-strong);
+  text-underline-offset: 5px;
+}
+
+.disclosure > summary::-webkit-details-marker {
+  display: none;
+}
+
+.disclosure > summary:hover {
+  text-decoration-color: currentColor;
+}
+
+.whenOpen {
+  display: none;
+}
+
+.disclosure[open] > summary .whenOpen {
+  display: inline;
+}
+
+.disclosure[open] > summary .whenClosed {
+  display: none;
+}
+
+.disclosureBody {
+  margin-top: 12px;
+}
+
+.allEvidence {
+  margin: 40px 0 0;
+  padding-top: 16px;
+  border-top: 1px solid var(--border);
+}
+
+.allEvidenceBody {
+  margin-top: 20px;
+}
+
+/* ---------- phones ---------- */
+
+@media (max-width: 700px) {
+  .page {
+    --dot: 26px;
+    --dot-row: 38px;
+    --top: 22px;
+  }
+
+  .ver {
+    min-width: 36px;
+  }
+
+  .vid {
+    font-size: 0.875rem;
+  }
+
+  .quote {
+    font-size: 1.15rem;
+  }
+
+  .rows {
+    grid-template-columns: 24px minmax(0, 1fr);
+  }
+
+  .row {
+    align-items: start;
+    font-size: 1.1rem;
+  }
+
+  .rowMark {
+    padding-top: 2px;
+  }
+
+  .rowRuns {
+    grid-column: 2;
+    padding-left: 0;
+  }
+
+  .recheckLine {
+    font-size: 1.125rem;
+  }
+
+  .page :global(.table) td[data-label]::before {
+    font-size: 0.875rem;
+  }
+}
