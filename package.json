@@ -12,7 +12,9 @@
     "test": "node --import tsx --test tests/*.test.ts",
     "seed": "tsx --env-file=.env.local scripts/seed.ts",
     "run-task": "tsx --env-file=.env.local scripts/run-task.ts",
-    "eval": "tsx --env-file=.env.local scripts/eval.ts"
+    "eval": "tsx --env-file=.env.local scripts/eval.ts",
+    "build-history": "tsx --env-file=.env.local scripts/build-history.ts",
+    "test:db": "node --env-file=.env.local --import tsx --test tests/db/*.test.ts"
   },
   "dependencies": {
     "mongodb": "^7.6.0",
