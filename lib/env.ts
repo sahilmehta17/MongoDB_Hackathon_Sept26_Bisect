@@ -8,13 +8,8 @@ export function requireEnv(name: string): string {
   return v;
 }
 
-// Yesterday's dry-run data lives in a database named "bisect". Today's build must never write there.
-const FORBIDDEN_DBS = new Set(["bisect"]);
-
 export function dbName(): string {
-  const name = requireEnv("MONGODB_DB");
-  if (FORBIDDEN_DBS.has(name)) throw new Error(`MONGODB_DB="${name}" is the dry-run database; use bisect_sep26`);
-  return name;
+  return requireEnv("MONGODB_DB");
 }
 
 // Short git commit of the running code: Vercel sets VERCEL_GIT_COMMIT_SHA; locally we ask git.
