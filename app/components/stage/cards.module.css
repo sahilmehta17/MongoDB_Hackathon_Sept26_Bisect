@@ -37,6 +37,11 @@
   transition: background-color 350ms ease-out, border-color 350ms ease-out;
 }
 
+/* No notes under any card: no need for the extra room. */
+.row:not(:has(.note)) {
+  padding-bottom: 24px;
+}
+
 .alarm .row {
   background: var(--bad-bg);
   border-color: var(--bad);
