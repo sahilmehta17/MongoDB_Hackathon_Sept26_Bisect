@@ -13,7 +13,7 @@ const rec = view.recognitions!.find((r) => r.decision === "immune_blocked")!;
 test("rows follow the session in order, one per rule and moment", () => {
   assert.deepEqual(
     story.rows.map((r) => r.kind),
-    ["routine", "blocked_tests", "routine", "blocked_tests", "routine", "live", "alarm", "bisect", "remembered", "blocked_memory"],
+    ["routine", "blocked_tests", "blocked_tests", "live", "alarm", "bisect", "remembered", "blocked_memory"],
   );
 });
 
@@ -56,7 +56,7 @@ test("the Bisect row's numbers come from the investigation", () => {
   assert.equal(b.line2[0], "With it: 5 of 5 double refunds. Without it: 0 of 5.");
   assert.equal(b.line2[1], `Removed only that rule. All ${others.length} other tasks still pass.`);
   assert.equal(b.line2[2], `${Math.round(inv.elapsedMs / 1000)} s, ${inv.cost.runs} runs.`);
-  assert.equal(b.expand[0], `Searched ${i.line.length} versions, tested ${new Set(i.probes.map((p) => p.versionId)).size}.`);
+  assert.ok(b.expand[0].startsWith(`Searched ${i.line.length} versions, tested ${new Set(i.probes.map((p) => p.versionId)).size}.`));
   assert.ok(b.open);
 });
 
@@ -85,6 +85,15 @@ test("before any investigation, the header shows neither number", () => {
   assert.equal(early.header.firstCatch, null);
   assert.equal(early.header.repeatCatch, null);
   assert.equal(early.status, "running");
+});
+
+test("rule text is shortened at a word boundary", async () => {
+  const { shorten } = await import("@/lib/story");
+  const long = "A tool call that times out did not go through: call the same tool again right away with the same arguments.";
+  const s = shorten(long);
+  assert.ok(s.length <= 81 && s.endsWith("…"));
+  assert.ok(long.startsWith(s.slice(0, -1)));
+  assert.doesNotMatch(s, /\bt…$/);
 });
 
 test("durations read naturally", () => {

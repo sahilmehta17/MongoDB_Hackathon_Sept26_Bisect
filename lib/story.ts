@@ -119,8 +119,14 @@ const HARM: Record<string, string> = {
   correct_amount: "wrong refund amounts",
 };
 
-const shorten = (text: string, max = 90) => (text.length <= max ? text : `${text.slice(0, max - 1).trimEnd()}…`);
-const q = (text: string) => `“${shorten(text)}”`;
+// Shorten at a word boundary so a rule fits on one projector line; the full text is in the expand.
+export function shorten(text: string, max = 80): string {
+  if (text.length <= max) return text;
+  const cut = text.slice(0, max);
+  const space = cut.lastIndexOf(" ");
+  return `${(space > max * 0.6 ? cut.slice(0, space) : cut).replace(/[\s,;:.]+$/, "")}…`;
+}
+const q = (text: string, max = 80) => `“${shorten(text, max)}”`;
 const secs = (ms: number) => Math.round(ms / 100) / 10;
 const run = (id?: string): StoryLink[] => (id ? [{ label: "See the trace", href: `/runs/${id}` }] : []);
 const chipOf = (label?: string): StoryRow["chip"] => (label === "planted" || label === "injected" || label === "visitor" ? label : null);
@@ -129,6 +135,9 @@ export function formatDuration(seconds: number): string {
   const s = Math.round(seconds);
   return s < 60 ? `${s} s` : `${Math.floor(s / 60)} min ${s % 60} s`;
 }
+
+// Short times read better as seconds (e.g. "63 s"); longer ones as minutes and seconds.
+export const shortDuration = (seconds: number) => (seconds < 120 ? `${Math.round(seconds)} s` : formatDuration(seconds));
 
 // The confirm or screen that decided a gate rejection: the first non-passing confirm, else a trigger.
 function deciding(evidence: EvidenceItem[] = []): EvidenceItem | undefined {
@@ -151,29 +160,20 @@ export function toStory(view: AutopilotView): Story {
   const plan: string[] = [];
   let start = "";
 
-  // Consecutive routine events merge into one row per kind ("requests" or "monitoring").
-  let routine: { kind: "requests" | "monitoring"; items: NonNullable<StoryRow["items"]>; key: string } | null = null;
-  const flush = () => {
-    if (!routine) return;
-    const n = routine.items.length;
-    rows.push({
-      key: routine.key,
-      kind: "routine",
-      step: routine.kind === "requests" ? "learn" : "watch",
-      chip: null,
-      line1: routine.kind === "requests" ? `${n} routine request${n === 1 ? "" : "s"} handled` : "Monitoring: all clear",
-      line2: [],
-      expand: [],
-      links: [],
-      items: routine.items,
-      open: false,
-    });
-    routine = null;
-  };
+  // Routine events collapse: all routine requests into one row, and all-clear monitoring checks
+  // into one row, each placed where the first one happened; expanding lists them in order.
+  const routineRows: Partial<Record<"requests" | "monitoring", StoryRow>> = {};
+  const flush = () => {};
   const addRoutine = (kind: "requests" | "monitoring", key: string, item: NonNullable<StoryRow["items"]>[number]) => {
-    if (routine && routine.kind !== kind) flush();
-    if (!routine) routine = { kind, items: [], key };
-    routine.items.push(item);
+    let row = routineRows[kind];
+    if (!row) {
+      row = { key, kind: "routine", step: kind === "requests" ? "learn" : "watch", chip: null, line1: "", line2: [], expand: [], links: [], items: [], open: false };
+      routineRows[kind] = row;
+      rows.push(row);
+    }
+    row.items!.push(item);
+    const n = row.items!.length;
+    row.line1 = kind === "requests" ? `${n} routine request${n === 1 ? "" : "s"} handled along the way` : "Monitoring: all clear";
   };
 
   let proposal: { proposed: AutopilotEvent; failedRun?: AutopilotEvent; steps: AutopilotEvent[] } | null = null;
@@ -384,7 +384,7 @@ function proposalRow(
         ? [`Recognized (${Math.round(rep.score * 100)}% similar) → replayed the old case: ${rep.probe.counts.targetFail} of ${rep.probe.trials} → blocked in ${seconds} s`]
         : [`Blocked in ${seconds} s`],
       expand: [
-        ...(matched ? [`It matched a rule we already caught: ${q(matched.lessonText)}`] : []),
+        ...(matched ? [`It matched a rule caught earlier: ${q(matched.lessonText, 60)}`] : []),
         ...(text.length > 90 ? [`Full rule: “${text}”`] : []),
       ],
       small: "(5 fresh runs)",
@@ -481,9 +481,9 @@ function bisectRow(started: AutopilotEvent, inv: InvestigationView | undefined):
       accepted
         ? `Removed only that rule. ${stillGood === others.length ? `All ${others.length}` : `${stillGood} of ${others.length}`} other tasks still pass.`
         : `Removing it needs a person to decide.`,
-      `${seconds} s, ${inv.cost.runs} runs.`,
+      `${shortDuration(seconds)}, ${inv.cost.runs} runs.`,
     ],
-    expand: [`Searched ${i.line.length} version${i.line.length === 1 ? "" : "s"}, tested ${probed}.`, `The rule: ${q(i.suspect.text)}`],
+    expand: [`Searched ${i.line.length} version${i.line.length === 1 ? "" : "s"}, tested ${probed}. The rule: ${q(i.suspect.text, 60)}`],
     small: "(5 fresh runs each)",
     links: link,
     open: true,

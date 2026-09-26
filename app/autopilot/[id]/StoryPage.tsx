@@ -4,7 +4,7 @@ import Link from "next/link";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import LoopStrip from "@/app/components/LoopStrip";
 import StoryIcon from "@/app/components/StoryIcon";
-import { formatDuration, toStory, type Story, type StoryRow } from "@/lib/story";
+import { formatDuration, shortDuration, toStory, type Story, type StoryRow } from "@/lib/story";
 import type { AutopilotView } from "@/lib/types";
 import styles from "./story.module.css";
 
@@ -93,7 +93,7 @@ function Header({ story, current, openTry }: { story: Story; current: Story["row
           <Link className={styles.number} href={h.firstCatch.href}>
             <span className={styles.numberLabel}>First catch</span>
             <span className={styles.numberValue}>
-              {formatDuration(h.firstCatch.seconds)} · {h.firstCatch.runs} runs
+              {shortDuration(h.firstCatch.seconds)} · {h.firstCatch.runs} runs
             </span>
           </Link>
           {h.repeatCatch && (
@@ -166,10 +166,10 @@ function Row({ row, sessionId, onDecided }: { row: StoryRow; sessionId: string; 
             {row.expand.map((l) => (
               <p key={l}>{l}</p>
             ))}
-            {row.small && <p className={styles.small}>{row.small}</p>}
             {row.decision && <Decision sessionId={sessionId} onDecided={onDecided} />}
-            {row.links.length > 0 && (
+            {(row.small || row.links.length > 0) && (
               <p className={styles.links}>
+                {row.small && <span className={styles.small}>{row.small}</span>}
                 {row.links.map((l) => (
                   <Link key={l.href} href={l.href}>
                     {l.label} ▸
