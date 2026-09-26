@@ -66,7 +66,7 @@ export function traceHref(rec: Recognition): string | null {
 }
 
 // A short menu: up to 3 reworded bad rules, spread across the list (it is grouped by the rule they
-// reword, so this shows one of each), then the last 3 useful rules (the ones close in topic to a bad
+// reword, so this shows one of each; rewordings already tried in the story are skipped), then the last 3 useful rules (the ones close in topic to a bad
 // rule: they resemble a remembered rule, so their replay runs and lets them through).
 const MENU_BAD = 3;
 const MENU_USEFUL = 3;
@@ -76,8 +76,8 @@ function spread<T>(xs: T[], k: number): T[] {
   return Array.from({ length: k }, (_, i) => xs[Math.floor((i * xs.length) / k)]);
 }
 
-export function pickMenu(menu: MenuItem[]): MenuItem[] {
-  const bad = menu.filter((m) => m.kind === "reworded bad rule");
+export function pickMenu(menu: MenuItem[], exclude: string[] = []): MenuItem[] {
+  const bad = menu.filter((m) => m.kind === "reworded bad rule" && !exclude.includes(m.text));
   const useful = menu.filter((m) => m.kind === "useful rule");
   return [...spread(bad, MENU_BAD), ...useful.slice(-MENU_USEFUL)];
 }

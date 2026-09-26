@@ -27,6 +27,7 @@ export type SneakDialogProps = {
   onClose: () => void;
   baseVersionId: string;
   onResult?: (rec: Recognition) => void;
+  exclude?: string[]; // rule texts already shown in the story; the menu offers new wordings instead
 };
 
 type Status =
@@ -37,7 +38,7 @@ type Status =
 
 const errorText = (e: unknown) => (e instanceof Error ? e.message : String(e));
 
-export function SneakDialog({ open, onClose, baseVersionId, onResult }: SneakDialogProps) {
+export function SneakDialog({ open, onClose, baseVersionId, onResult, exclude }: SneakDialogProps) {
   const dialogRef = useRef<HTMLDialogElement>(null);
   const titleRef = useRef<HTMLHeadingElement>(null);
   const statusRef = useRef<HTMLDivElement>(null);
@@ -65,7 +66,9 @@ export function SneakDialog({ open, onClose, baseVersionId, onResult }: SneakDia
     }
   }, [open]);
 
-  // The prewritten rules and the calibration state, fresh each time the dialog opens.
+  // The prewritten rules and the calibration state, fresh each time the dialog opens. The first
+  // reworded bad rule starts selected, so trying it is one click.
+  const excludeKey = (exclude ?? []).join("\n");
   useEffect(() => {
     if (!open) return;
     const ctrl = new AbortController();
@@ -75,7 +78,9 @@ export function SneakDialog({ open, onClose, baseVersionId, onResult }: SneakDia
         return (await res.json()) as ImmuneView;
       })
       .then((view) => {
-        setMenu(pickMenu(view.menu ?? []));
+        const picked = pickMenu(view.menu ?? [], excludeKey ? excludeKey.split("\n") : []);
+        setMenu(picked);
+        setDraft((d) => d || (picked.find((m) => m.kind === "reworded bad rule")?.text ?? ""));
         setCalibrated(view.threshold !== null);
         setMenuFailed(false);
       })
@@ -83,7 +88,7 @@ export function SneakDialog({ open, onClose, baseVersionId, onResult }: SneakDia
         if (!ctrl.signal.aborted) setMenuFailed(true);
       });
     return () => ctrl.abort();
-  }, [open]);
+  }, [open, excludeKey]);
 
   const running = status.kind === "running";
 

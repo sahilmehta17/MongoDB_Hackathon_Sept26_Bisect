@@ -1,9 +1,11 @@
 "use client";
 
 import Link from "next/link";
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import LoopStrip from "@/app/components/LoopStrip";
+import SneakDialog from "@/app/components/SneakDialog";
 import StoryIcon from "@/app/components/StoryIcon";
+import VisitorAttempts from "@/app/components/VisitorAttempts";
 import { formatDuration, shortDuration, toStory, type Story, type StoryRow } from "@/lib/story";
 import type { AutopilotView } from "@/lib/types";
 import styles from "./story.module.css";
@@ -44,6 +46,18 @@ export default function StoryPage({ id, openTry }: { id: string; openTry: boolea
 
   const story = useMemo(() => (view ? toStory(view) : null), [view]);
   const play = usePlay(story?.rows.length ?? 0);
+  // "Try to sneak a bad rule past it" (UI spec §6): a dialog over this page, open on arrival with ?try=1.
+  const [tryOpen, setTryOpen] = useState(openTry);
+  const [attempts, setAttempts] = useState(0);
+  const tried = useMemo(() => (view ? [...new Set(view.session.events.flatMap((e) => (e.text ? [e.text] : [])))] : []), [view]);
+  // While playing, keep the newest row on screen so nobody has to scroll during the demo.
+  const rowsRef = useRef<HTMLOListElement>(null);
+  useEffect(() => {
+    if (play.shown === null) return;
+    const smooth = !window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+    if (play.shown === 0) window.scrollTo({ top: 0, behavior: smooth ? "smooth" : "auto" });
+    else rowsRef.current?.lastElementChild?.scrollIntoView({ block: "nearest", behavior: smooth ? "smooth" : "auto" });
+  }, [play.shown]);
 
   if (error && !story) {
     return (
@@ -63,18 +77,21 @@ export default function StoryPage({ id, openTry }: { id: string; openTry: boolea
   const rows = play.shown === null ? story.rows : story.rows.slice(0, play.shown);
   const shownStory: Story = { ...story, rows, header: headerFor(rows) };
   const current = rows.length ? rows[rows.length - 1].step : "learn";
+  const base = view.session.activeVersionId;
   return (
     <main className={styles.page}>
-      <Header story={shownStory} current={current} openTry={openTry} />
+      <Header story={shownStory} current={current} play={play} onTry={() => setTryOpen(true)} />
       <hr className={styles.divider} />
       {story.start && <p className={styles.start}>{story.start}</p>}
-      <ol className={styles.rows}>
+      <ol className={styles.rows} ref={rowsRef}>
         {rows.map((row) => (
           <Row key={row.key} row={row} sessionId={id} onDecided={load} />
         ))}
       </ol>
+      {rows.length === story.rows.length && <VisitorAttempts baseVersionId={base} refreshKey={attempts} />}
       <hr className={styles.divider} />
-      <Footer story={story} id={id} play={play} />
+      <Footer story={story} id={id} />
+      <SneakDialog open={tryOpen} onClose={() => setTryOpen(false)} baseVersionId={base} exclude={tried} onResult={() => setAttempts((k) => k + 1)} />
     </main>
   );
 }
@@ -94,7 +111,7 @@ function headerFor(rows: StoryRow[]): Story["header"] {
 
 // Play mode (UI spec §10): reveal one row every 3 s. Space plays or pauses, → next, ← previous,
 // R resets to the start. null means every row is shown (not playing).
-type Play = { shown: number | null; playing: boolean; toggle: () => void };
+type Play = { shown: number | null; playing: boolean; toggle: () => void; total: number };
 function usePlay(total: number): Play {
   const [shown, setShown] = useState<number | null>(null);
   const [playing, setPlaying] = useState(false);
@@ -137,10 +154,10 @@ function usePlay(total: number): Play {
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
   }, [toggle, total]);
-  return { shown, playing, toggle };
+  return { shown, playing, toggle, total };
 }
 
-function Header({ story, current, openTry }: { story: Story; current: Story["rows"][number]["step"]; openTry: boolean }) {
+function Header({ story, current, play, onTry }: { story: Story; current: Story["rows"][number]["step"]; play: Play; onTry: () => void }) {
   const h = story.header;
   return (
     <header className={styles.header}>
@@ -148,9 +165,14 @@ function Header({ story, current, openTry }: { story: Story; current: Story["row
         <h1 className={styles.title}>
           Bisect <span className={styles.status}>{story.status === "running" ? "Running…" : story.status === "waiting" ? "Waiting for a person" : story.status === "finished" ? "Finished" : "Stopped"}</span>
         </h1>
-        <Link className={styles.try} href="/immune" data-open={openTry ? "1" : undefined}>
-          Try to sneak a bad rule past it
-        </Link>
+        <div className={styles.actions}>
+          <button type="button" className={styles.play} onClick={play.toggle} aria-pressed={play.playing} title="Space: play or pause · → next · ← back · R: start over">
+            {play.playing ? "❚❚ Pause" : play.shown === null || play.shown >= play.total ? "▶ Play the story" : "▶ Resume"}
+          </button>
+          <button type="button" className={styles.try} onClick={onTry}>
+            Try to sneak a bad rule past it
+          </button>
+        </div>
       </div>
       <LoopStrip current={current} />
       {h.firstCatch && (
@@ -279,13 +301,10 @@ function Decision({ sessionId, onDecided }: { sessionId: string; onDecided: () =
   );
 }
 
-function Footer({ story, id, play }: { story: Story; id: string; play: Play }) {
+function Footer({ story, id }: { story: Story; id: string }) {
   return (
     <footer className={styles.footer}>
       <p>
-        <button type="button" className={styles.play} onClick={play.toggle} aria-pressed={play.playing}>
-          {play.playing ? "❚❚ Pause" : "▶ Play"}
-        </button>{" "}
         {story.status === "finished"
           ? `Finished in ${formatDuration(story.footer.seconds)}.`
           : story.status === "running"
