@@ -1,5 +1,6 @@
 // Turns one autopilot session into the story shown on /autopilot/[id]: one row per rule and per
 // notable moment, in the order they happened (UI spec §5). Pure: reads the view, never the database.
+import { CASE_COPY } from "@/lib/demo";
 import { LIMITS, type AutopilotEvent, type AutopilotView, type EvidenceItem, type InvestigationView, type Origin, type Recognition } from "@/lib/types";
 
 export type StoryStep = "learn" | "test" | "watch" | "diagnose" | "remember";
@@ -552,6 +553,7 @@ export interface EvidenceSection {
 }
 export interface Stage {
   sessionId: string;
+  caseTitle: string | null; // the planted case the session runs against, e.g. "The retry that refunds twice"
   recordedAt: string;
   steps: StageStep[];
   baseVersionId: string;
@@ -563,6 +565,9 @@ export interface StageRun {
   finalStateSummary?: Record<string, unknown>;
 }
 
+// Text between ** marks is a step's key moment; the page highlights it (plain() strips the marks).
+export const plain = (text: string) => text.replaceAll("**", "");
+
 // The concrete harm in one failing run, e.g. "$80 back on a $40 order" (refund checks only).
 export function harmSentence(r?: StageRun | null): string | undefined {
   const st = r?.finalStateSummary;
@@ -573,8 +578,8 @@ export function harmSentence(r?: StageRun | null): string | undefined {
   if (!(count >= 2 && paid > 0 && total > paid)) return undefined;
   const refunds = (r?.toolCalls ?? []).filter((c) => c.tool === "issue_refund");
   return refunds[0]?.result === "timeout"
-    ? `The first $${paid} refund timed out but had gone through, so the agent refunded again: $${total} back on a $${paid} order.`
-    : `The agent refunded ${count} times: $${total} back on a $${paid} order.`;
+    ? `The first $${paid} refund timed out but had gone through, so the agent refunded again: **$${total} back on a $${paid} order**.`
+    : `The agent refunded ${count} times: **$${total} back on a $${paid} order**.`;
 }
 
 const runHref = (id?: string) => (id ? `/runs/${id}` : undefined);
@@ -654,7 +659,7 @@ export function toStage(view: AutopilotView, extras: { threshold?: number | null
     key: "start",
     part: "autopilot",
     headline: `The agent starts with ${seeds.length} hand-written rule${seeds.length === 1 ? "" : "s"}.`,
-    sub: "It answers support requests and proposes new rules as it goes. A new rule goes live only if it passes the tests.",
+    sub: "It answers support requests and proposes new rules as it goes. A new rule goes live **only if it passes the tests**.",
     cards: seeds,
     metric: ev.length ? `${ok === ev.length ? "All" : `${ok} of`} ${ev.length} test tasks pass` : undefined,
     links: [],
@@ -669,7 +674,7 @@ export function toStage(view: AutopilotView, extras: { threshold?: number | null
     steps.push({
       key: "rejected",
       part: "autopilot",
-      headline: `The tests reject ${rejected.length === 1 ? "a new rule" : `${rejected.length} new rules`}.`,
+      headline: `The tests reject **${rejected.length === 1 ? "a new rule" : `${rejected.length} new rules`}**.`,
       sub: "Each new rule is tried on the test tasks with fresh runs before it can go live.",
       cards: [...as(seeds, "dim"), ...rejected.map((p) => card(p, "rejected", rejectNote(p.decided!)))],
       links: run(deciding(rejected[0].decided!.evidence)?.runIds[0]),
@@ -704,7 +709,7 @@ export function toStage(view: AutopilotView, extras: { threshold?: number | null
       key: "live",
       part: "autopilot",
       headline: injected ? "This rule skips the tests and goes live." : "This rule passes the tests and goes live.",
-      sub: covered ? `Why it got past: the tests don't include ${taskTitle(covered)}.` : undefined,
+      sub: covered ? `Why it got past: **the tests don't include ${taskTitle(covered)}**.` : undefined,
       cards: [...seeds, card(live, "new", injected ? "added directly" : "passed the tests")],
       links: [],
       evidence: [
@@ -746,7 +751,7 @@ export function toStage(view: AutopilotView, extras: { threshold?: number | null
       key: "found",
       part: "bisect",
       headline: "Bisect finds the rule that did it.",
-      sub: `It searched ${i.line.length} version${i.line.length === 1 ? "" : "s"} and re-ran the failing request with and without the suspect rule.`,
+      sub: `It searched ${i.line.length} version${i.line.length === 1 ? "" : "s"} and re-ran the failing request **with and without the suspect rule**.`,
       cards: [...as(rest, "dim"), { ...suspect, state: "suspect" }],
       dots:
         withIt && without
@@ -783,9 +788,9 @@ export function toStage(view: AutopilotView, extras: { threshold?: number | null
     steps.push({
       key: "removed",
       part: "bisect",
-      headline: accepted ? "It removes only that rule." : "Removing it needs a person to decide.",
+      headline: accepted ? "It removes **only that rule**." : "Removing it needs a person to decide.",
       sub: accepted
-        ? `Re-checked ${others.length} other tasks: ${kept === passedBefore.length ? "all" : `${kept} of`} ${passedBefore.length} that passed before still pass${fixed ? `, and ${fixed} that failed now pass` : ""}.`
+        ? `Re-checked ${others.length} other tasks: **${kept === passedBefore.length ? "all" : `${kept} of`} ${passedBefore.length} that passed before still pass**${fixed ? `, and ${fixed} that failed now pass` : ""}.`
         : undefined,
       cards: [...as(rest, "live"), { ...suspect, state: accepted ? "removed" : "suspect", note: accepted ? "removed" : undefined }],
       metric: `${shortDuration(Math.round(inv.elapsedMs / 1000))} · ${inv.cost.runs} fresh runs`,
@@ -812,7 +817,7 @@ export function toStage(view: AutopilotView, extras: { threshold?: number | null
       key: "remembered",
       part: "memory",
       headline: "The rule is remembered.",
-      sub: "Its failing request is saved with it. A new rule that looks similar gets that request replayed before it can go live.",
+      sub: "Its failing request is saved with it. A new rule that looks similar gets that request **replayed before it can go live**.",
       cards: [...as(rest, "live"), shield],
       links: [{ label: "See the memory", href: "/immune" }],
       evidence: [
@@ -840,9 +845,9 @@ export function toStage(view: AutopilotView, extras: { threshold?: number | null
     steps.push({
       key: "blocked",
       part: "memory",
-      headline: `The same idea in new words is blocked in ${seconds} s.`,
+      headline: `The same idea in new words is **blocked in ${seconds} s**.`,
       sub: rep
-        ? `It is ${pct}% similar to the remembered rule${thr ? ` (threshold ${Math.round(thr * 100)}%)` : ""}, so the old request was replayed with it: ${rep.probe.counts.targetFail} of ${rep.probe.trials} runs failed.`
+        ? `It is **${pct}% similar** to the remembered rule${thr ? ` (threshold ${Math.round(thr * 100)}%)` : ""}, so the old request was replayed with it: ${rep.probe.counts.targetFail} of ${rep.probe.trials} runs failed.`
         : undefined,
       cards: [],
       compare: { old: { ...shield, text: matched?.lessonText ?? shield.text }, new: card(blocked, "blocked", "blocked"), between: pct !== null ? `${pct}% similar` : "similar" },
@@ -886,8 +891,10 @@ export function toStage(view: AutopilotView, extras: { threshold?: number | null
     });
   }
 
+  const seedId = live?.proposed.msg.match(/\b(H\d+)\b/)?.[1];
   return {
     sessionId: s.sessionId,
+    caseTitle: (seedId && CASE_COPY[seedId]?.title) ?? null,
     recordedAt: String(s.createdAt),
     steps,
     baseVersionId: s.activeVersionId,

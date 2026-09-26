@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { test } from "node:test";
-import { harmSentence, toStage } from "@/lib/story";
+import { harmSentence, plain, toStage } from "@/lib/story";
 import type { AutopilotView } from "@/lib/types";
 
 // ap2: the recorded demo session shown on the home page.
@@ -43,8 +43,8 @@ test("rejected rules say what they broke", () => {
 });
 
 test("the alarm shows the concrete harm from the saved run", () => {
-  assert.equal(step("alarm").headline, "Monitoring catches it: the agent refunds the customer twice.");
-  assert.equal(step("alarm").sub, "The first $40 refund timed out but had gone through, so the agent refunded again: $80 back on a $40 order.");
+  assert.equal(plain(step("alarm").headline), "Monitoring catches it: the agent refunds the customer twice.");
+  assert.equal(step("alarm").sub, "The first $40 refund timed out but had gone through, so the agent refunded again: **$80 back on a $40 order**.");
   assert.deepEqual(step("alarm").dots, [{ label: "Fresh runs", fail: 5, total: 5, note: "double refunds" }]);
 });
 
@@ -56,16 +56,16 @@ test("Bisect's numbers come from the investigation", () => {
       [0, 5],
     ],
   );
-  assert.equal(step("removed").sub, "Re-checked 15 other tasks: all 13 that passed before still pass, and 2 that failed now pass.");
+  assert.equal(plain(step("removed").sub!), "Re-checked 15 other tasks: all 13 that passed before still pass, and 2 that failed now pass.");
   assert.equal(step("removed").metric, `${Math.round(inv.elapsedMs / 1000)} s · ${inv.cost.runs} fresh runs`);
 });
 
 test("the reworded rule is compared with the remembered one and blocked", () => {
   const b = step("blocked");
-  assert.match(b.headline, /^The same idea in new words is blocked in \d+(\.\d)? s\.$/);
+  assert.match(plain(b.headline), /^The same idea in new words is blocked in \d+(\.\d)? s\.$/);
   assert.equal(b.compare!.between, "81% similar");
   assert.equal(b.compare!.new.state, "blocked");
-  assert.match(b.sub!, /81% similar to the remembered rule \(threshold 79%\), so the old request was replayed with it: 5 of 5 runs failed\.$/);
+  assert.match(plain(b.sub!), /81% similar to the remembered rule \(threshold 79%\), so the old request was replayed with it: 5 of 5 runs failed\.$/);
 });
 
 test("no ids in headlines or sentences (ids only as small card tags)", () => {
@@ -76,4 +76,15 @@ test("no ids in headlines or sentences (ids only as small card tags)", () => {
 test("the harm sentence only speaks about double refunds it can see", () => {
   assert.equal(harmSentence({ finalStateSummary: { refund_count: 1, refunded_total: 40, amount_paid: 40 } }), undefined);
   assert.equal(harmSentence(null), undefined);
+});
+
+test("the header names the planted case the session runs against", () => {
+  assert.equal(stage.caseTitle, "The retry that refunds twice");
+});
+
+test("every step before the live one marks its key moment", () => {
+  for (const s of stage.steps.filter((x) => x.key !== "try")) {
+    assert.ok(`${s.headline} ${s.sub ?? ""}`.includes("**"), s.key);
+  }
+  assert.equal(harmSentence(alarmRun), "The first $40 refund timed out but had gone through, so the agent refunded again: **$80 back on a $40 order**.");
 });

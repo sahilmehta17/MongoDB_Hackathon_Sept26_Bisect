@@ -41,6 +41,33 @@
   color: var(--fg);
 }
 
+.case {
+  font-size: 17px;
+  color: var(--muted);
+}
+
+.case strong {
+  color: var(--fg);
+  font-weight: 700;
+}
+
+/* A step's key moment: a highlighter stroke behind the words. */
+.mark {
+  color: inherit;
+  font-weight: inherit;
+  padding: 0 0.12em;
+  margin: 0 -0.04em;
+  border-radius: 0.2em;
+  background: linear-gradient(transparent 52%, var(--warn-bg) 52%);
+  -webkit-box-decoration-break: clone;
+  box-decoration-break: clone;
+}
+
+.sub .mark {
+  color: var(--fg);
+  font-weight: 600;
+}
+
 .footer {
   margin-top: 24px;
   padding-top: 12px;

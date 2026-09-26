@@ -5,7 +5,7 @@
 // the last step checks a rule live with the same request as the /immune page.
 import Link from "next/link";
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { PARTS, toStage, type StageRun, type StageStep } from "@/lib/story";
+import { PARTS, plain, toStage, type StageRun, type StageStep } from "@/lib/story";
 import type { AutopilotView, ImmuneView } from "@/lib/types";
 import Dots from "./Dots";
 import EvidencePanel from "./EvidencePanel";
@@ -151,7 +151,11 @@ export default function StageView({ id }: { id: string }) {
       <div className={styles.bar}>
         <p className={styles.meta}>
           <span className={styles.brand}>Bisect</span>
-          <span>Recorded session · harmful rules planted by us</span>
+          {stage.caseTitle && (
+            <span className={styles.case}>
+              Case: <strong>{stage.caseTitle}</strong>
+            </span>
+          )}
         </p>
         <div className={styles.controls}>
           <button type="button" onClick={() => jump(k - 1)} disabled={k === 0} aria-label="Previous step">
@@ -185,11 +189,11 @@ export default function StageView({ id }: { id: string }) {
 
       <section className={styles.scene} aria-live="polite">
         <h1 key={`${step.key}-h`} className={styles.headline}>
-          {step.headline}
+          <Marked text={step.headline} />
         </h1>
         {step.sub && (
           <p key={`${step.key}-s`} className={styles.sub}>
-            {step.sub}
+            <Marked text={step.sub} />
           </p>
         )}
         <div className={styles.visual}>
@@ -213,7 +217,7 @@ export default function StageView({ id }: { id: string }) {
           </p>
         )}
       </section>
-      <EvidencePanel open={evidence && step.evidence.length > 0} onClose={closeEvidence} title={step.headline} sections={step.evidence} links={step.links} />
+      <EvidencePanel open={evidence && step.evidence.length > 0} onClose={closeEvidence} title={plain(step.headline)} sections={step.evidence} links={step.links} />
       <footer className={styles.footer}>
         Behind the demo: <Link href={`/autopilot/${stage.sessionId}`}>session log</Link> · <Link href="/autopilot">all runs</Link> ·{" "}
         <Link href="/immune">immune memory</Link>
@@ -239,4 +243,21 @@ function Visual({ step, baseVersionId, tried }: { step: StageStep; baseVersionId
     );
   }
   return <RuleCards cards={step.cards} tone={step.tone} />;
+}
+
+// A step's key moment (text between ** marks) is highlighted.
+function Marked({ text }: { text: string }) {
+  return (
+    <>
+      {text.split("**").map((part, n) =>
+        n % 2 ? (
+          <mark key={n} className={styles.mark}>
+            {part}
+          </mark>
+        ) : (
+          part
+        ),
+      )}
+    </>
+  );
 }
